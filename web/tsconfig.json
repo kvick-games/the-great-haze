@@ -4,5 +4,5 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": []
   },
-  "include": ["src/**/*.ts", "../src/game/**/*.ts"]
+  "include": ["src/**/*.ts", "../src/game/**/*.ts", "../src/story/**/*.ts"]
 }
