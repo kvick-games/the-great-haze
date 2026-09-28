@@ -236,8 +236,8 @@ export function chooseOption(game: Game, strategy: Strategy, rand: Rand): string
       if (strategy === "reckless") return cheapest(opts).id;
       if (def.kind === "respite") return opts[0].id;
       // Talk it down when the best voice in the party has the edge and it costs little.
-      const talk = opts.find((o) => o.check && o.check.bonus >= 3 && (o.hours ?? 0) <= 2 && !o.disabled);
-      if (talk && strategy !== "random") return talk.id;
+      const talk = opts.find((o) => o.check && o.check.bonus >= 4 && (o.hours ?? 0) <= 2 && !o.disabled);
+      if (talk && strategy === "samaritan") return talk.id;
       return chooseHazard(game, opts);
     }
     default:
@@ -247,7 +247,7 @@ export function chooseOption(game: Game, strategy: Strategy, rand: Rand): string
 
 /** A named companion's trouble: prefer a spoken answer (a check) if their friends can carry it, else the quickest. */
 function chooseCompanion(opts: ScreenOption[]): string {
-  const spoken = opts.find((o) => o.check && o.check.bonus >= 2);
+  const spoken = opts.find((o) => o.check && o.check.bonus >= 0);
   return (spoken ?? cheapest(opts)).id;
 }
 
