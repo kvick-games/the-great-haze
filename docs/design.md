@@ -68,8 +68,11 @@ never-stopping play must be shown to abandon real people while always-helping pl
 ## The Haze and the clock
 
 - `gap` is the distance in miles between the wagons and the Haze's leading edge. Start 58.
-- Each day the Haze advances a region-dependent distance (about 9–15 miles) with noise, and occasional **surges**
+- Each day the Haze advances a region-dependent distance (about 8–12 miles) with noise, and occasional **surges**
   (+8) and **lulls** (−5). A *haunted* companion can hear a surge coming and will warn you at the morning plan.
+- **It never lets you get comfortable.** Past a gap of about 62 miles the Haze quickens in proportion to how far ahead
+  you are, so a cushion cannot grow without bound. Simulated careful runs sit around 70 miles early on and are squeezed
+  toward the mid-40s by the end. Without this rule, early slack made the first third of the road toothless.
 - You advance `travel hours × mph`. Hours spent on anything else reduce travel hours. Overflow spills into tomorrow.
 - Zones: `far ≥ 45`, `near ≥ 25`, `close ≥ 10`, `upon < 10`. The closer it is, the more it costs nerve, the more
   Hollowed and Haze phenomena show up, and (below 32 miles) the more torches you burn each night.
@@ -137,8 +140,8 @@ npm run simulate -- 200 dire
 npm run trace -- cautious 7        # a full transcript of one bot run
 ```
 
-Current targets on **Exodus (normal)**, measured by bots: careful play wins about 40%, always-help about 15–20%,
-never-stop about 1%, random about 0%. On **Ash Reckoning (dire)** careful play wins roughly 10%. The bots read the
+Current targets on **Exodus (normal)**, measured by bots: careful play wins about 35–40%, always-help about 10%,
+never-stop about 1%, random about 0%. On **Ash Reckoning (dire)** careful play wins roughly 10–13%. The bots read the
 scene data directly so they are *better* at reading tells than a human will be; treat these as upper bounds.
 
 ## Architecture and Dream Engine

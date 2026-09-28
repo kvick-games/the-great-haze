@@ -723,6 +723,8 @@ export class Game {
     s.day++;
     const noise = 1 + this.rng.float(-TUNING.hazeNoise, TUNING.hazeNoise);
     let haze = baseHazeMiles(s) * noise;
+    // The Haze is patient and relentless: pull far ahead and it quickens.
+    haze += Math.max(0, s.gap - TUNING.catchupGap) * TUNING.catchupRate;
     let surge: "surge" | "lull" | null = null;
     const roll = this.rng.next();
     if (roll < TUNING.surgeChance) {

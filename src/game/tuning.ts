@@ -18,6 +18,9 @@ export const TUNING = {
   maxCarryHours: 6,
   disputeBase: 0.07,
   hazeNoise: 0.12,
+  /** Past this gap the Haze quickens to close the distance, so a cushion can never grow comfortable. */
+  catchupGap: 62,
+  catchupRate: 0.4,
   surgeChance: 0.08,
   lullChance: 0.06,
   surgeMiles: 8,
