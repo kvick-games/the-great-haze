@@ -71,6 +71,8 @@ export class World {
   target: Mood = { night: 1, haze: 0, reach: 0, flare: 0 };
   /** Gap to the Haze in miles, shown on screen; the wall eases toward it. */
   gapMiles = 58;
+  /** Extra Haze for scenes where the sky itself turns (sky-bleeds, ash-squall). */
+  hazeBoost = 0;
   private shownGap = 58;
   time = 0;
   timeScale = 1;
@@ -129,6 +131,7 @@ export class World {
     this.quality = q;
     if (this.bloom) this.bloom.enabled = q > 0.5;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, q > 0.5 ? 1.75 : 1));
+    this.composer.setPixelRatio(this.renderer.getPixelRatio());
     this.resize();
   }
 
@@ -239,7 +242,7 @@ export class World {
     this.shownGap = damp(this.shownGap, this.gapMiles, 1.2, dt);
     const g = Math.max(0, this.shownGap);
     this.haze.distance = 14 + g * 5 + Math.max(0, g - 25) * 4;
-    this.haze.proximity = clamp01(1 - (g - 4) / 50);
+    this.haze.proximity = clamp01(1 - (g - 4) / 50 + this.hazeBoost);
     this.target.haze = this.haze.proximity;
 
     const cam = this.rig.camera;
@@ -275,7 +278,7 @@ export class World {
 
   /** Jump every eased value to its target (scene cuts, loading a save). */
   snap(): void {
-    this.target.haze = this.haze.proximity = Math.max(0, Math.min(1, 1 - (this.gapMiles - 4) / 50));
+    this.target.haze = this.haze.proximity = clamp01(1 - (this.gapMiles - 4) / 50 + this.hazeBoost);
     Object.assign(this.mood, this.target);
     this.shownGap = this.gapMiles;
     this.train.camp = this.train.campTarget;

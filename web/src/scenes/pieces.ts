@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { ball, box, cone, cyl, merge, part, seeded, vcMaterial } from "../world/geo.ts";
 import type { RGB } from "../world/geo.ts";
 import { Flame, blobShadow } from "../world/fx.ts";
+import { keep } from "../world/dispose.ts";
 
 export const WOOD: RGB = [0.12, 0.085, 0.06];
 export const DARKWOOD: RGB = [0.06, 0.045, 0.035];
@@ -17,7 +18,7 @@ export function glowMat(r: number, g: number, b: number): THREE.MeshBasicMateria
   const key = `${r},${g},${b}`;
   let m = glowMats.get(key);
   if (!m) {
-    m = new THREE.MeshBasicMaterial({ color: new THREE.Color(r, g, b), fog: true });
+    m = keep(new THREE.MeshBasicMaterial({ color: new THREE.Color(r, g, b), fog: true }));
     glowMats.set(key, m);
   }
   return m;

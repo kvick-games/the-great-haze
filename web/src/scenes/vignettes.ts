@@ -9,6 +9,7 @@ import type { Pose } from "../world/actors.ts";
 import { ENEMY_LOOKS } from "../world/looks.ts";
 import type { Flame } from "../world/fx.ts";
 import { CLEARINGS, terrainHeight } from "../world/regions.ts";
+import { disposeTree } from "../world/dispose.ts";
 import { roadPoint, roadYaw } from "../world/train.ts";
 import * as P from "./pieces.ts";
 import type { Piece } from "./pieces.ts";
@@ -25,6 +26,8 @@ export interface StageFigure {
 }
 
 export class Stage {
+  /** The scene this stage was built for ("" for towns and stores). */
+  id = "";
   group = new THREE.Group();
   flames: Flame[] = [];
   figures: StageFigure[] = [];
@@ -123,6 +126,7 @@ export class Stage {
 
   dispose(): void {
     this.group.removeFromParent();
+    disposeTree(this.group);
     for (const c of CLEARINGS) if (this.clearing && c.equals(this.clearing)) c.w = 0;
   }
 
@@ -381,16 +385,9 @@ const BUILDS: Record<string, Build> = {
 /** Scenes that happen at the wagons: the train itself is the stage. */
 const AT_TRAIN = new Set(["axle-break", "spoiled-stores", "fever", "oxen-balk", "headcount", "campfire-song", "shared-supper", "square-of-blue", "sky-bleeds", "last-stand"]);
 
-export function hasStage(id: string): boolean {
-  return id in BUILDS;
-}
-
-export function isAtTrain(id: string): boolean {
-  return AT_TRAIN.has(id) || !(id in BUILDS);
-}
-
 export function buildStage(id: string): Stage {
   const st = new Stage();
+  st.id = id;
   const b = BUILDS[id];
   if (b) b(st);
   if (!b || AT_TRAIN.has(id)) st.atTrain = true;

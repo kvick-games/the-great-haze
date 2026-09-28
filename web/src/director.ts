@@ -19,7 +19,8 @@ import { lookFor } from "./world/looks.ts";
 import { CLEARINGS, U, terrainHeight } from "./world/regions.ts";
 import { WAGON_GAP, roadPoint } from "./world/train.ts";
 import { smoothstep } from "./world/noise.ts";
-import { Stage, buildArrival, buildStage, buildTown, isAtTrain } from "./scenes/vignettes.ts";
+import { disposeTree } from "./world/dispose.ts";
+import { Stage, buildArrival, buildStage, buildTown } from "./scenes/vignettes.ts";
 import { cross } from "./scenes/pieces.ts";
 import { CombatStage } from "./scenes/combat.ts";
 import type { UI } from "./ui/ui.ts";
@@ -65,6 +66,8 @@ export class Director {
   private town: Stage | null = null;
   private combat: CombatStage | null = null;
   private candidates = new Map<string, Figure>();
+  /** Muster candidates who stayed behind: scenery now, not clickable. */
+  private bystanders: Figure[] = [];
   private markers: THREE.Object3D[] = [];
   private baseShot: ShotFn | null = null;
   private focused: string | null = null;
@@ -88,6 +91,7 @@ export class Director {
     this.town?.update(dt, t);
     this.combat?.update(dt, t);
     for (const f of this.candidates.values()) f.update(dt, t);
+    for (const f of this.bystanders) f.update(dt, t);
     // Old stages are dropped once they are far behind the wagons.
     this.oldStages = this.oldStages.filter((s) => {
       if (w.train.d - s.s > 260) {
@@ -100,8 +104,7 @@ export class Director {
     if (this.town && tr.d > 600) {
       this.drop(this.town);
       this.town = null;
-      for (const f of this.candidates.values()) f.root.removeFromParent();
-      this.candidates.clear();
+      this.clearTownsfolk();
     }
     tr.lanterns = w.mood.night > 0.6 ? 1 : 0.35;
     const moving = Math.min(1, Math.abs(tr.speed) / 4);
@@ -174,7 +177,9 @@ export class Director {
       if (subject && subject.root.visible && gap < 70 && lateral.length() < 6.5) {
         const pos = S.clone().add(u.clone().multiplyScalar(-5.5)).add(n.clone().multiplyScalar(3.2 + sway));
         pos.y = 2.3;
-        return { pos: lift(pos, 1.6), target: S.clone().lerp(head, 0.35).setY(1.3) };
+        // On a tall screen there is little room beside the subject, so aim closer to them.
+        const aim = this.world.rig.camera.aspect < 1 ? 0.12 : 0.35;
+        return { pos: lift(pos, 1.6), target: S.clone().lerp(head, aim).setY(1.3) };
       }
       const pos = head.clone().add(u.clone().multiplyScalar(6)).add(n.clone().multiplyScalar(4 + sway));
       pos.y = 3.2 + Math.min(8, gap * 0.08);
@@ -314,19 +319,16 @@ export class Director {
     const s = this.s;
     const hud = this.game!.hud();
     const tr = this.world.train;
-    const recruitSpots: THREE.Vector3[] = [];
-    if (this.stage && !this.stage.atTrain) {
-      for (const sf of this.stage.figures) {
-        if (!sf.recruit || !sf.fig.root.visible) continue;
-        recruitSpots.push(this.stage.worldPos(sf.fig));
-        sf.fig.root.visible = false;
-        break;
-      }
-    }
+    const st = this.stage;
+    // Someone who joins walks over from where they stood in the scene; the figure there
+    // is hidden only when it is actually taken.
     const res = tr.syncMembers(hud.party, () => {
       if (!before) return undefined;
-      const spot = recruitSpots.shift();
-      if (spot) return spot;
+      const sf = st && !st.atTrain ? st.figures.find((f) => f.recruit && f.fig.root.visible) : undefined;
+      if (sf && st) {
+        sf.fig.root.visible = false;
+        return st.worldPos(sf.fig);
+      }
       const c = tr.center();
       return c.add(new THREE.Vector3(18, 0, -4));
     });
@@ -336,9 +338,10 @@ export class Director {
       const a = tr.members.get(id);
       if (!a) continue;
       const p = a.fig.position.clone();
-      if (/Haze|turned|wheat|smiling/.test(fate)) {
+      // Departures are worded "walked…", "turned…", "left…", "took…"; anything else is a death.
+      if (/^(walked|turned)/.test(fate)) {
         tr.dismiss(id, p.clone().add(new THREE.Vector3(3, 0, 30)));
-      } else if (/left|took|shelter|quarantine|farm/.test(fate)) {
+      } else if (/^(left|took)/.test(fate)) {
         tr.dismiss(id, p.clone().add(new THREE.Vector3(-26, 0, 8)));
       } else {
         tr.dismiss(id, undefined, true);
@@ -360,7 +363,11 @@ export class Director {
       }
     }
     // Keep the grave markers from piling up forever.
-    while (this.markers.length > 30) this.markers.shift()?.removeFromParent();
+    while (this.markers.length > 30) {
+      const m = this.markers.shift()!;
+      m.removeFromParent();
+      disposeTree(m);
+    }
   }
 
   /** Remove a stage and give its flames' lights back to the pool. */
@@ -394,6 +401,10 @@ export class Director {
     w.gapMiles = 52;
     w.target.night = 1;
     w.target.reach = 0;
+    // Nothing from the last run carries into the backdrop.
+    w.train.setWagons(3, 1);
+    w.train.fire.size = 1.6;
+    w.train.torchesLit = true;
     w.train.syncMembers(
       ["leader", "ines", "cutter", "wren", "odalys"].map((id, i) => ({
         id,
@@ -424,16 +435,28 @@ export class Director {
     this.town = null;
     this.combat?.dispose();
     this.combat = null;
-    for (const f of this.candidates.values()) f.root.removeFromParent();
-    this.candidates.clear();
-    for (const m of this.markers) m.removeFromParent();
+    this.clearTownsfolk();
+    for (const m of this.markers) {
+      m.removeFromParent();
+      disposeTree(m);
+    }
     this.markers = [];
     for (const id of [...w.train.members.keys()]) w.train.dismiss(id);
     w.train.breakCamp();
     w.train.camp = 0;
     w.train.releaseClearing();
+    w.hazeBoost = 0;
     CLEARINGS[0].w = 0;
     CLEARINGS[1].w = 0;
+  }
+
+  private clearTownsfolk(): void {
+    for (const f of [...this.candidates.values(), ...this.bystanders]) {
+      f.root.removeFromParent();
+      disposeTree(f.root);
+    }
+    this.candidates.clear();
+    this.bystanders = [];
   }
 
   async newGame(opts: NewGameOptions): Promise<void> {
@@ -597,6 +620,8 @@ export class Director {
       return;
     }
     this.screen = next;
+    // Save now: reloading mid-cinematic must not replay a choice already made.
+    this.save();
     // Choices that only change settings or the muster pick do not need a cinematic.
     if (prev.kind === "setup" && id.startsWith("pick:")) {
       this.highlight(null);
@@ -606,13 +631,17 @@ export class Director {
       return;
     }
     if (prev.kind === "plan" && /^(pace|rations):/.test(id)) {
-      this.save();
       this.present();
       return;
     }
-    await this.cinematic(() => this.play(prev, prevPending, id, next, before));
-    this.save();
-    this.present();
+    const game = this.game;
+    try {
+      await this.cinematic(() => this.play(prev, prevPending, id, next, before));
+    } catch (e) {
+      console.error(e);
+    }
+    // The run may have been abandoned while the cinematic played.
+    if (this.game === game) this.present();
   }
 
   /** Show the current card, labelled for the time of day, and frame the view around it. */
@@ -677,13 +706,16 @@ export class Director {
       const f = this.candidates.get(m.id);
       if (f) {
         f.root.removeFromParent();
+        disposeTree(f.root);
         this.candidates.delete(m.id);
       }
     }
     for (const f of this.candidates.values()) {
       f.setRing("none");
       f.pose = "stand";
+      this.bystanders.push(f);
     }
+    this.candidates.clear();
     w.train.clearStaging();
     this.ui.say("Four go with you.", "Two stay by the fire and watch you load the wagons.");
     this.shotStore();
@@ -771,7 +803,12 @@ export class Director {
     const pace = PACES[this.s.pace];
     this.ui.say(`Day ${this.s.day} · ${regionAt(this.s.miles).name}`, `${pace.name} pace`);
     if (next.kind === "scene" && this.roadPhase()) return this.rollToScene(before);
-    return this.rollDay(next, before);
+    await this.rollDay(next, before);
+    if (next.kind === "ending") {
+      this.syncParty(before);
+      this.syncWorldState();
+      await this.ending();
+    }
   }
 
   // ------------------------------------------------------------------ the road
@@ -785,6 +822,7 @@ export class Director {
     const w = this.world;
     const tr = w.train;
     const inst = this.sceneInst()!;
+    this.retireStage();
     const adv = Math.min(this.expectedDayUnits() * 0.12, 1.3 * U);
     const st = buildStage(inst.id);
     this.stage = st;
@@ -800,17 +838,13 @@ export class Director {
   /** Put a scene on stage without the approach (loading a save). */
   private stageScene(inst: SceneInstance, snapCam: boolean): void {
     const tr = this.world.train;
-    const def = sceneById(inst.id);
     const night = !this.roadPhase();
-    if (LANDMARK_SCENES.has(inst.id) || (!isAtTrain(inst.id) && def?.kind !== "dispute")) {
-      const st = buildStage(inst.id);
-      this.stage = st;
-      this.placeStage(st, tr.d + st.stopShort + 8);
-    } else {
-      const st = buildStage("__none__");
-      this.stage = st;
-      this.placeStage(st, tr.d - WAGON_GAP);
-    }
+    // Mirror how the scene was staged when it happened: landmarks ahead of the camp,
+    // other night scenes at the wagons, road scenes where rollToScene puts them.
+    const landmark = LANDMARK_SCENES.has(inst.id);
+    const st = buildStage(night && !landmark ? "__none__" : inst.id);
+    this.stage = st;
+    this.placeStage(st, landmark ? tr.d + 20 : st.atTrain ? tr.d - WAGON_GAP : tr.d + st.stopShort + 8);
     this.stagePeople(inst, night);
     this.shot(this.shotForScene(inst), 1.4, snapCam);
   }
@@ -920,13 +954,13 @@ export class Director {
         break;
       }
       case "sky-bleeds":
-        this.world.target.haze = Math.min(1, this.world.target.haze + 0.4);
+        this.world.hazeBoost = 0.4;
         break;
       case "square-of-blue":
         this.world.target.reach = 1;
         break;
       case "ash-squall":
-        this.world.haze.proximity = Math.max(this.world.haze.proximity, 0.7);
+        this.world.hazeBoost = Math.max(0, 0.7 - this.world.haze.proximity);
         break;
     }
   }
@@ -968,6 +1002,7 @@ export class Director {
       await this.wait(1.8);
     }
     for (const pair of tr.oxen) for (const o of pair) o.lookBack = 0;
+    w.hazeBoost = 0;
     // A trap springs: the stranger shows what they are.
     const combatNext = this.s.queue[0]?.t === "combat";
     if (combatNext && st) {
@@ -1001,6 +1036,8 @@ export class Director {
     switch (next.kind) {
       case "scene": {
         const inst = this.sceneInst()!;
+        // A landmark's scene plays on the stage its arrival already built.
+        if (this.stage && this.stage.id === inst.id) return this.presentScene(inst);
         if (this.roadPhase()) return this.rollToScene(before);
         // A night scene: a landmark ahead of the camp, or trouble inside it.
         this.retireStage();
@@ -1038,6 +1075,8 @@ export class Director {
         return;
       case "ending":
         if (before.miles < this.s.miles - 0.5) await this.rollDay(next, before);
+        this.syncParty(before);
+        this.syncWorldState();
         return this.ending();
       default:
         return;

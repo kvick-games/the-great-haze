@@ -8,6 +8,7 @@ import { Figure, Ox, Wagon, wrapAngle } from "./actors.ts";
 import type { Pose } from "./actors.ts";
 import { Flame, LightPool, Embers } from "./fx.ts";
 import { lookFor } from "./looks.ts";
+import { disposeTree } from "./dispose.ts";
 import { CLEARINGS, roadX, terrainHeight } from "./regions.ts";
 import { clamp01, damp, smoothstep } from "./noise.ts";
 
@@ -164,6 +165,8 @@ export class Train {
       a.leaving = { x: walkTo.x, z: walkTo.z, t: 0 };
     } else {
       this.group.remove(a.fig.root);
+      if (a.fig.torch) this.pool.remove(a.fig.torch);
+      disposeTree(a.fig.root);
       this.members.delete(id);
     }
   }
@@ -401,6 +404,7 @@ export class Train {
         if (a.leaving.t > 2.5) {
           this.group.remove(fig.root);
           if (fig.torch) this.pool.remove(fig.torch);
+          disposeTree(fig.root);
           this.members.delete(a.id);
         }
       }

@@ -4,6 +4,7 @@
 
 import * as THREE from "three";
 import { Flame, blobShadow } from "./fx.ts";
+import { keep } from "./dispose.ts";
 import { damp } from "./noise.ts";
 
 const matCache = new Map<string, THREE.MeshStandardMaterial>();
@@ -11,7 +12,7 @@ function mat(hex: number, rough = 0.85): THREE.MeshStandardMaterial {
   const key = `${hex}:${rough}`;
   let m = matCache.get(key);
   if (!m) {
-    m = new THREE.MeshStandardMaterial({ color: hex, roughness: rough, metalness: 0, flatShading: true });
+    m = keep(new THREE.MeshStandardMaterial({ color: hex, roughness: rough, metalness: 0, flatShading: true }));
     matCache.set(key, m);
   }
   return m;

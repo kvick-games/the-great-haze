@@ -7,6 +7,7 @@ import { ENEMY_LOOKS } from "../world/looks.ts";
 import type { World } from "../world/world.ts";
 import { Flame, glowTexture } from "../world/fx.ts";
 import { terrainHeight } from "../world/regions.ts";
+import { disposeTree } from "../world/dispose.ts";
 import { roadYaw } from "../world/train.ts";
 import { ENEMIES } from "../../../src/game/content/enemies.ts";
 
@@ -259,5 +260,6 @@ export class CombatStage {
 
   dispose(): void {
     this.group.removeFromParent();
+    disposeTree(this.group);
   }
 }

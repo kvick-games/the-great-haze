@@ -286,7 +286,7 @@ export class UI {
     q.title = "Graphics quality";
     q.appendChild(svg(ICONS.camera));
     q.addEventListener("click", () => this.toast(`Graphics: ${this.handlers.toggleQuality()}`));
-    const ab = h("button", "tool text", this.confirmAbandon ? "Abandon? Yes" : "Abandon");
+    const ab = h("button", "tool text abandon", this.confirmAbandon ? "Abandon? Yes" : "Abandon");
     ab.type = "button";
     ab.addEventListener("click", () => {
       if (this.confirmAbandon) {

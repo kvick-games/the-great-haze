@@ -2,6 +2,7 @@
 
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { keep } from "./dispose.ts";
 
 export type RGB = [number, number, number];
 
@@ -72,7 +73,7 @@ export const MAT_CACHE = new Map<string, THREE.Material>();
 export function vcMaterial(key = "vc", opts: THREE.MeshStandardMaterialParameters = {}): THREE.MeshStandardMaterial {
   const hit = MAT_CACHE.get(key);
   if (hit) return hit as THREE.MeshStandardMaterial;
-  const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0, flatShading: true, ...opts });
+  const m = keep(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0, flatShading: true, ...opts }));
   MAT_CACHE.set(key, m);
   return m;
 }

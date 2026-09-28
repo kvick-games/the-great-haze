@@ -2,6 +2,7 @@
 // shared among the torches nearest the action, and one-shot effects.
 
 import * as THREE from "three";
+import { keep } from "./dispose.ts";
 
 let flameTex: THREE.Texture | null = null;
 let glowTex: THREE.Texture | null = null;
@@ -15,7 +16,7 @@ function radial(stops: [number, string][], size = 64): THREE.Texture {
   for (const [o, col] of stops) grd.addColorStop(o, col);
   g.fillStyle = grd;
   g.fillRect(0, 0, size, size);
-  const t = new THREE.CanvasTexture(c);
+  const t = keep(new THREE.CanvasTexture(c));
   t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }
@@ -38,7 +39,7 @@ export function flameTexture(): THREE.Texture {
     g.bezierCurveTo(48, 124, 16, 124, 10, 104);
     g.bezierCurveTo(4, 80, 12, 50, 32, 4);
     g.fill();
-    flameTex = new THREE.CanvasTexture(c);
+    flameTex = keep(new THREE.CanvasTexture(c));
     flameTex.colorSpace = THREE.SRGBColorSpace;
   }
   return flameTex;

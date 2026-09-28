@@ -21,12 +21,21 @@ export class Audio {
   private crackleAcc = 0;
   private creakAcc = 0;
   on = false;
+  private unavailable = false;
 
   private init(): boolean {
     if (this.ctx) return true;
+    if (this.unavailable) return false;
     const Ctor = (window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext) as typeof AudioContext | undefined;
-    if (!Ctor) return false;
-    const ctx = new Ctor();
+    let ctx: AudioContext;
+    try {
+      if (!Ctor) throw new Error("no Web Audio");
+      ctx = new Ctor();
+    } catch {
+      // No sound is better than no game.
+      this.unavailable = true;
+      return false;
+    }
     this.ctx = ctx;
     this.master = ctx.createGain();
     this.master.gain.value = 0;

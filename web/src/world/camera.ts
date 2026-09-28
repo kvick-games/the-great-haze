@@ -67,16 +67,21 @@ export class CameraRig {
 
   update(dt: number, time: number): void {
     const s = this.shot(time);
+    // Tall screens keep at least ~44 degrees across, so a subject beside the view axis
+    // stays in frame on a phone held upright.
+    const minFov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(22)) / Math.max(0.2, this.camera.aspect)));
+    const fov = Math.max(s.fov ?? 50, Math.min(85, minFov));
     if (this.cut) {
       this.pos.copy(s.pos);
       this.target.copy(s.target);
+      this.fov = fov;
       this.cut = false;
     } else {
       const k = 1 - Math.exp(-this.rate * dt);
       this.pos.lerp(s.pos, k);
       this.target.lerp(s.target, k * 1.3 > 1 ? 1 : k * 1.3);
     }
-    this.fov = damp(this.fov, s.fov ?? 50, 2, dt);
+    this.fov = damp(this.fov, fov, 2, dt);
     this.idle += dt;
     if (this.idle > 5) {
       this.userYaw = damp(this.userYaw, 0, 0.6, dt);

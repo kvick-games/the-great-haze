@@ -6,6 +6,7 @@ import { UI } from "./ui/ui.ts";
 import { Director } from "./director.ts";
 import { Audio } from "./audio.ts";
 import type { Figure } from "./world/actors.ts";
+import { ROSTER } from "../../src/game/content/roster.ts";
 
 declare global {
   interface Window {
@@ -57,10 +58,28 @@ function boot(): void {
       const saved = Director.saved();
       audio.wake();
       ui.setSound(audio.on);
+      if (!saved) {
+        // Finished or abandoned in another tab since the title appeared.
+        ui.showTitle(null);
+        ui.toast("That journey is already over.");
+        return;
+      }
       ui.hideTitle();
-      if (saved) director.resume(saved.raw);
+      try {
+        director.resume(saved.raw);
+      } catch (e) {
+        // A save from an older build can name content that no longer exists.
+        console.error(e);
+        Director.clearSave();
+        director.game = null;
+        director.titleScene();
+        ui.showTitle(null);
+        ui.toast("That save could not be loaded.");
+      }
     },
     abandon: () => {
+      // Never mid-cinematic: the director is still acting on the current run.
+      if (director.busy) return;
       Director.clearSave();
       director.game = null;
       director.titleScene();
@@ -125,7 +144,8 @@ function boot(): void {
     const hit = pickFigure(ev);
     if (hit && director.game) {
       const m = director.game.s.party.find((p) => p.id === hit.id);
-      const label = m ? `${m.name} · ${m.role}` : hit.candidate ? `${hit.id} · click to choose` : "";
+      const tpl = hit.candidate ? ROSTER.find((r) => r.id === hit.id) : undefined;
+      const label = m ? `${m.name} · ${m.role}` : tpl ? `${tpl.name} · ${tpl.role} · click to choose` : "";
       ui.tip(label || null, ev.clientX, ev.clientY);
       canvas.style.cursor = "pointer";
     } else {
@@ -150,7 +170,11 @@ function boot(): void {
     world.rig.zoom(ev.deltaY);
     ev.preventDefault();
   }, { passive: false });
-  window.addEventListener("resize", () => world.resize());
+  window.addEventListener("resize", () => {
+    world.resize();
+    // The card may have moved (bottom sheet ↔ side panel), so re-frame around it.
+    if (director.game && !director.busy) director.frameForUI();
+  });
 
   let last = performance.now();
   const loop = (now: number) => {

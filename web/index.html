@@ -173,6 +173,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .is-busy .cine .skip { opacity: 1; transform: none; }
 .is-busy .card, .is-busy .party { opacity: 0; transform: translateY(14px); pointer-events: none; }
 .is-busy .hud { opacity: 0.55; }
+.is-busy .tool.abandon { opacity: 0.35; pointer-events: none; }
 .cine { visibility: hidden; }
 .is-busy .cine { visibility: visible; }
 .caption { position: absolute; left: 50%; bottom: 13vh; transform: translate(-50%, 8px); width: min(760px, calc(100% - 32px)); text-align: center; opacity: 0; transition: opacity 0.6s, transform 0.6s; pointer-events: none; text-shadow: 0 2px 18px rgba(0, 0, 0, 0.9); }
@@ -227,11 +228,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* ---- short landscape (phones on their side, split windows): keep the scene in the middle ---- */
 @media (max-height: 560px) and (min-aspect-ratio: 13/10) {
   .hud { padding: 6px 12px 12px; row-gap: 4px; }
-  .party { left: 8px; right: auto; bottom: 8px; width: 156px; max-height: calc(100% - 104px); grid-auto-flow: row; grid-auto-columns: auto; overflow-x: hidden; overflow-y: auto; align-content: end; gap: 4px; }
+  .party { left: calc(8px + env(safe-area-inset-left, 0px)); right: auto; bottom: 8px; width: 156px; max-height: calc(100% - 104px); grid-auto-flow: row; grid-auto-columns: auto; overflow-x: hidden; overflow-y: auto; align-content: end; gap: 4px; }
   .party-head, .m-meta, .m-cond { display: none; }
   .member { padding: 4px 7px 5px; }
   .m-name { font-size: 14px; }
-  .card, .card.kind-store, .card.kind-ending { left: auto; right: 8px; bottom: 8px; width: min(430px, calc(100% - 184px)); max-height: calc(100% - 100px); padding: 12px 14px; font-size: 14.5px; }
+  .card, .card.kind-store, .card.kind-ending { left: auto; right: calc(8px + env(safe-area-inset-right, 0px)); bottom: 8px; width: min(430px, calc(100% - 184px)); max-height: calc(100% - 100px); padding: 12px 14px; font-size: 14.5px; }
   .card.kind-setup { left: 8px; right: 8px; width: auto; }
   .card h2 { font-size: 22px; margin-bottom: 8px; }
   .lines { gap: 5px; }
