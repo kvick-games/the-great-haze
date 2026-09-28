@@ -8,10 +8,10 @@
 // Pure and deterministic: the same two snapshots always give the same answer.
 
 import { sceneById } from "../game/content/scenes/index.ts";
-import type { GameState, Hud, Pending, ResourceId, Role, Trait } from "../game/types.ts";
+import type { CheckResult, GameState, Hud, Pending, ResourceId, Role, Screen, SpokenLine, Trait } from "../game/types.ts";
 import { regionAt } from "../game/world.ts";
 import { matchOutcome, truthGroup } from "./catalog.ts";
-import { baseLook, characterSpecs, lookLabel, lookSignature, slotKeyFor } from "./characters.ts";
+import { baseLook, characterSpecs, lookLabel, lookSignature, slotKeyFor, strangerKey } from "./characters.ts";
 import type { CharacterSpec, Costume, Look } from "./characters.ts";
 import { DatomLog } from "./datoms.ts";
 import type { Json, TxOp } from "./datoms.ts";
@@ -230,6 +230,31 @@ export interface Mutation {
 export type Stakes = "quiet" | "minor" | "notable" | "life-altering";
 export type BeatKind = "death" | "turning" | "departure" | "join" | "injury" | "haze" | "combat" | "encounter" | "hardship" | "camp" | "road" | "trade" | "muster" | "ending" | "quiet";
 
+/** A spoken line resolved against the story: who (a character key), the words, and how they are said. */
+export interface BeatLine {
+  /** Character key: "leader", a member or NPC id, or a stranger key. */
+  key: string;
+  name: string;
+  kind: SpokenLine["kind"];
+  text: string;
+  mood: SpokenLine["mood"];
+  gesture: SpokenLine["gesture"];
+  /** "setup": said as the scene opened. "outcome": said as the choice played out. */
+  phase: "setup" | "outcome";
+}
+
+/** Where the train was, from the route map the player was looking at. */
+export interface BeatPlace {
+  regionId: string;
+  node: string;
+  nodeName: string;
+  nodeKind: string;
+  /** Road being travelled, when between nodes. */
+  edge: string | null;
+  edgeName: string | null;
+  terrain: string | null;
+}
+
 export interface Beat {
   id: string;
   index: number;
@@ -253,9 +278,23 @@ export interface Beat {
   /** Stable key shared with the pre-baked twin of this beat. */
   templateKey: string;
   mutations: Mutation[];
+  /** Spoken lines for this beat, when the screens were supplied to the recorder. */
+  talk?: BeatLine[];
+  /** The dialogue or perception check this choice made, if any. */
+  check?: CheckResult;
+  /** Region and route context from the hud. */
+  place?: BeatPlace;
+}
+
+/** The screens either side of one choice. They carry what the snapshots cannot: speech, checks and the route. */
+export interface BeatScreens {
+  before?: Screen;
+  after?: Screen;
 }
 
 export interface ChronicleContext {
+  /** The screens before and after the choice: spoken lines, the check and the route context. */
+  screens?: BeatScreens;
   index?: number;
   /** The story log, for the looks and visual versions each character had before this beat. */
   log?: DatomLog;
@@ -534,7 +573,50 @@ export function chronicle(beforeIn: SnapshotInput, afterIn: SnapshotInput, choic
 
   const index = ctx.index ?? 0;
   const beat = buildBeat(before, after, choiceId, muts, index, ctx.text);
+  if (ctx.screens) addScreenContext(beat, before, after, ctx.screens);
   return { beat, mutations: muts };
+}
+
+function placeOf(hud: Hud | undefined): BeatPlace | undefined {
+  if (!hud) return undefined;
+  const map = hud.map;
+  const pos = map?.position;
+  const node = map?.nodes.find((n) => n.id === pos?.node);
+  const edge = pos?.edge ? map.edges.find((e) => e.id === pos.edge) : undefined;
+  return { regionId: hud.regionId, node: pos?.node ?? "", nodeName: node?.name ?? "", nodeKind: node?.kind ?? "", edge: pos?.edge ?? null, edgeName: edge?.name ?? null, terrain: edge?.terrain ?? null };
+}
+
+/** Attach speech, the check and the route to a beat, and make every speaker a participant. */
+function addScreenContext(beat: Beat, before: StorySnapshot, after: StorySnapshot, screens: BeatScreens): void {
+  const scr = screens;
+  const leaderId = (before.party.find((m) => m.isLeader) ?? after.party.find((m) => m.isLeader))?.id;
+  const stranger = before.scene ? strangerKey(before.scene.id) : null;
+  const keyOf = (l: SpokenLine): string => (l.kind === "stranger" ? (stranger ?? "archetype.stranger") : l.speaker === leaderId ? "leader" : l.speaker);
+  const lines: BeatLine[] = [];
+  const take = (list: SpokenLine[] | undefined, phase: BeatLine["phase"]) => {
+    for (const l of list ?? []) lines.push({ key: keyOf(l), name: l.name, kind: l.kind, text: l.text, mood: l.mood, gesture: l.gesture, phase });
+  };
+  if (scr.before?.kind === "scene") take(scr.before.talk, "setup");
+  if (scr.after?.kind === "result") take(scr.after.talk, "outcome");
+  if (lines.length) beat.talk = lines;
+  if (scr.after?.kind === "result" && scr.after.check) beat.check = scr.after.check;
+  const place = placeOf(scr.after?.hud ?? scr.before?.hud);
+  if (place) {
+    beat.place = place;
+    beat.region = place.regionId;
+  }
+  // The stranger keeps their own face (or their NPC datom) in place of the generic archetype.
+  if (stranger) {
+    const at = beat.participants.indexOf("archetype.stranger");
+    if (at >= 0) beat.participants.splice(at, 1);
+    if (!beat.participants.includes(stranger)) beat.participants.splice(at >= 0 ? at : beat.participants.length, 0, stranger);
+  }
+  // Whoever speaks is on screen.
+  for (const l of lines) if (!beat.participants.includes(l.key)) beat.participants.push(l.key);
+  if (beat.check) {
+    const by = beat.check.by === leaderId ? "leader" : beat.check.by;
+    if (!beat.participants.includes(by) && after.party.some((m) => m.id === beat.check!.by)) beat.participants.push(by);
+  }
 }
 
 function fillTitle(t: string): string {

@@ -18,7 +18,10 @@ import { checkRequest } from "../tools/video/server.ts";
 import { redact, submit } from "../tools/video/fal.ts";
 import { buildScenario, selectRefs } from "../tools/video/scenarios/build.ts";
 import { SCENARIOS } from "../tools/video/scenarios/defs.ts";
-import { buildManifest, dialogueOf } from "../tools/video/h3-manifest.ts";
+import { buildManifest, dialogueOf, h3Prompt } from "../tools/video/h3-manifest.ts";
+import { characterSpecs, strangerKey, visualFromLook, visualText } from "../src/story/characters.ts";
+import { NPCS } from "../src/game/content/npcs.ts";
+import { SCENES } from "../src/game/content/scenes/index.ts";
 import { resolveManifest, scenarioPlan } from "../tools/video/scenarios/plan.ts";
 import { parseVideoMode } from "../web/src/video/mode.ts";
 
@@ -261,6 +264,66 @@ test("scenario plan: stills for the cast, a fixed order, and nothing pinned to t
 function shotForStaticLike(id: string) {
   return buildScenario(id).main.shots[0];
 }
+
+// ---------------------------------------------------------------- B's data in the story layer
+
+test("appearance: NPC and stranger Looks and roster looks read out through one text", () => {
+  const specs = characterSpecs();
+  const juniper = specs.find((c) => c.key === "juniper")!;
+  const look = NPCS.find((n) => n.id === "juniper")!.look;
+  const text = visualText(juniper.visual);
+  for (const part of [look.skin, look.prop.desc, look.palette[0], look.clothing[0], look.marks[0]]) assert.ok(text.includes(part), `${part} in "${text}"`);
+  assert.deepEqual(visualFromLook(look), juniper.visual, "the spec is exactly the mapped Look");
+  const ines = visualText(specs.find((c) => c.key === "ines")!.visual);
+  assert.ok(ines.includes("carrying") && ines.includes("infirmary"), ines);
+});
+
+test("named strangers become characters; a stranger who is a named NPC is that NPC's datom", () => {
+  const specs = characterSpecs();
+  let own = 0;
+  let npc = 0;
+  for (const def of SCENES.filter((d) => d.stranger)) {
+    const key = strangerKey(def.id)!;
+    assert.ok(specs.some((c) => c.key === key), `${def.id} -> ${key} has a spec`);
+    if (key.startsWith("stranger.")) own++;
+    else if (NPCS.some((n) => n.id === key)) npc++;
+  }
+  assert.ok(own > 5 && npc >= 1, `own ${own}, npc ${npc}`);
+  assert.equal(specs.find((c) => c.key === "stranger.signal-fire")?.kind, "stranger");
+});
+
+test("beats carry the screen's speech, check and route; shots voice them as <d> lines for the right subject", () => {
+  const sc = buildScenario("stranger-trap");
+  const b = sc.main.beats.find((x) => x.check)!;
+  assert.ok(b, "the quarrel beat has a check");
+  assert.equal(b.check?.kind, "calm");
+  assert.ok(b.place && b.place.regionId, "route context");
+  const talk = sc.main.beats[0].talk!;
+  assert.ok(talk.some((l) => l.phase === "setup" && l.key === "stranger.signal-fire"), "the stranger speaks under their own key");
+  for (const seg of [sc.main, sc.fork]) {
+    seg.beats.forEach((beat, i) => {
+      const req = seg.shots[i];
+      for (const d of req.dialogue) assert.ok(req.participants.some((p) => p.key === d.key), `${d.name} is drawn`);
+      const lines = h3Prompt(req, beat).join("\n");
+      for (const d of req.dialogue) assert.ok(lines.includes(`<d>[English] ${d.text}</d>`), d.text);
+      assert.ok(req.dialogue.length <= 2);
+    });
+  }
+  const first = h3Prompt(sc.main.shots[0], sc.main.beats[0]).join("\n");
+  assert.match(first, /The figure by the fire \(Image \d\), [^:]+: <d>\[English\] /, "attributed with acting direction");
+  assert.match(h3Prompt(sc.main.shots[2], sc.main.beats[2]).join("\n"), /Pim fails to calm the quarrel/, "the check is in the shot");
+  assert.match(sc.main.shots[2].prompt, /Setting: .*The place:/, "route context in the setting");
+});
+
+test("every scenario has speech in at least two beats, and the pins keep their named cast", () => {
+  const want: Record<string, string[]> = { "stranger-trap": ["stranger.signal-fire", "odalys"], "night-death": ["dov"], "companion-turns": ["juniper"] };
+  for (const def of SCENARIOS) {
+    const sc = buildScenario(def);
+    assert.ok(sc.main.beats.filter((b) => b.talk?.length).length >= 2, `${def.id} speaks`);
+    assert.ok(sc.main.shots.some((s) => s.dialogue.length), def.id);
+    for (const key of want[def.id]) assert.ok(sc.main.beats.some((b) => b.participants.includes(key)), `${def.id} has ${key}`);
+  }
+});
 
 // ---------------------------------------------------------------- video tooling
 

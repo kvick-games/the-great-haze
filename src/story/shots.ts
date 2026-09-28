@@ -12,7 +12,8 @@ import type { DatomLog } from "./datoms.ts";
 import { DEFAULTS, FIELDS, LIMITS, MODELS, estimateUsd } from "./videoconfig.ts";
 import type { Resolution, ShotMode } from "./videoconfig.ts";
 import { lookFromLog, visualFromLog } from "./mutations.ts";
-import type { Beat, BeatKind } from "./mutations.ts";
+import type { Beat, BeatKind, BeatPlace } from "./mutations.ts";
+import type { CheckResult, Gesture, Mood } from "../game/talk-types.ts";
 
 export interface ShotParticipant {
   key: string;
@@ -28,6 +29,45 @@ export interface ShotReference {
   slot_key: string;
   character: string;
   label: string;
+}
+
+/** A line of speech in a shot, attributed to one of its participants. */
+export interface ShotLine {
+  /** Character key of the speaker. */
+  key: string;
+  name: string;
+  text: string;
+  mood: Mood;
+  gesture: Gesture;
+}
+
+/** How a mood is played, as acting direction. */
+export const MOOD_ACTING: Record<Mood, string> = {
+  calm: "speaking evenly",
+  afraid: "voice unsteady, eyes darting",
+  angry: "hard-voiced, jaw tight",
+  pleading: "pleading, voice cracking",
+  sly: "with a sly half-smile",
+  grieving: "grieving, voice thick",
+  cold: "cold and flat",
+};
+
+/** How a gesture is played. */
+export const GESTURE_ACTING: Record<Gesture, string> = {
+  none: "",
+  point: "pointing",
+  beckon: "beckoning them closer",
+  shrug: "shrugging",
+  "raise-hands": "raising open hands",
+  clutch: "clutching what they hold to their chest",
+  kneel: "kneeling",
+  "draw-weapon": "reaching for a weapon",
+  offer: "holding a hand out in offer",
+  "turn-away": "turning away",
+};
+
+export function actingOf(l: { mood: Mood; gesture: Gesture }): string {
+  return [MOOD_ACTING[l.mood], GESTURE_ACTING[l.gesture]].filter(Boolean).join(", ");
 }
 
 export interface ShotRequest {
@@ -51,6 +91,10 @@ export interface ShotRequest {
   /** Short on-screen caption for placeholders and debug. */
   title: string;
   summary: string;
+  /** Spoken lines to voice, at most two, in order. Empty for a silent shot. */
+  dialogue: ShotLine[];
+  /** What a dialogue check looked like on screen, if this beat had one. */
+  checkNote: string;
 }
 
 export interface ShotOptions {
@@ -94,6 +138,51 @@ function envText(day: number, region: string): string {
   return environmentSpecs().find((e) => e.key === key)?.description ?? "";
 }
 
+/** The region look, plus the place on the route map and the night camp when that is where it happens. */
+function settingText(day: number, region: string, place: BeatPlace | undefined, kind: BeatKind): string {
+  const base = kind === "camp" ? environmentSpecs().find((e) => e.key === "camp")?.description ?? "" : "";
+  const env = envText(day, region);
+  const where = place && (place.nodeName || place.edgeName) ? ` The place: ${place.edgeName ? `the road called ${place.edgeName}` : place.nodeName}.` : "";
+  return [env, base && base !== env ? `At camp: ${base}` : "", where.trim()].filter(Boolean).join(" ");
+}
+
+/** How a dialogue check reads on screen. */
+export function checkNote(c: CheckResult | undefined): string {
+  if (!c) return "";
+  const who = c.byName;
+  // A quarrel's target is the scene title ("Whose fault was it?").
+  const target = /[?!]$/.test(c.target) ? "the quarrel" : c.target;
+  const won = c.success;
+  switch (c.kind) {
+    case "persuade":
+      return won ? `${who} talks ${target} round, and it lands.` : `${who} tries to move ${target} and gets nowhere.`;
+    case "calm":
+      return won ? `${who} steadies ${target} with a low voice.` : `${who} fails to calm ${target}.`;
+    case "haggle":
+      return won ? `${who} bargains ${target} down.` : `${who} cannot shift ${target} on the price.`;
+    case "talk-down":
+      return won ? `${who} talks ${target} down, hands open.` : `${who} cannot talk ${target} down.`;
+    case "spot":
+      return won ? `${who} notices what is wrong about ${target}.` : `${who} looks hard at ${target} and sees nothing.`;
+    case "see-lie":
+      return won ? `${who} watches ${target} and sees the lie.` : `${who} cannot tell whether ${target} is lying.`;
+  }
+}
+
+/** Up to two lines to voice: the outcome first, topped up from how the scene opened. Chronological. */
+export function pickDialogue(beat: Beat, specs: CharacterSpec[]): ShotLine[] {
+  const talk = beat.talk ?? [];
+  const outcome = talk.filter((l) => l.phase === "outcome");
+  const setup = talk.filter((l) => l.phase === "setup");
+  const chosen = outcome.slice(0, 2);
+  if (chosen.length < 2 && setup.length) {
+    // The setup line that best sets the outcome up: from someone not already speaking, else the last.
+    const other = [...setup].reverse().find((l) => !chosen.some((c) => c.key === l.key));
+    chosen.unshift(other ?? setup[setup.length - 1]);
+  }
+  return chosen.slice(-2).map((l) => ({ key: l.key, name: specs.find((s) => s.key === l.key)?.name ?? l.name, text: l.text, mood: l.mood, gesture: l.gesture }));
+}
+
 function propName(key: string): string {
   return PROPS[key]?.name.toLowerCase() ?? key;
 }
@@ -122,7 +211,7 @@ function pickReferences(list: Resolved[]): ShotReference[] {
   return refs;
 }
 
-function composePrompt(input: { title: string; kind: BeatKind; resolved: Resolved[]; refs: ShotReference[]; action: string; setting: string; notes: string[] }): string {
+function composePrompt(input: { title: string; kind: BeatKind; resolved: Resolved[]; refs: ShotReference[]; action: string; setting: string; notes: string[]; dialogue: ShotLine[]; checkNote: string }): string {
   const lines: string[] = [];
   lines.push("Cinematic dark frontier horror, 24 fps, filmic grain, torchlight and dusk under a sky stained red by the Haze.");
   for (const r of input.resolved) {
@@ -133,6 +222,8 @@ function composePrompt(input: { title: string; kind: BeatKind; resolved: Resolve
   }
   if (input.setting) lines.push(`Setting: ${input.setting}`);
   lines.push(`What happens: ${input.action}`);
+  if (input.checkNote) lines.push(`The exchange: ${input.checkNote}`);
+  for (const d of input.dialogue) lines.push(`${d.name} says (${actingOf(d)}): "${d.text}"`);
   if (input.notes.length) lines.push(`Show clearly: ${input.notes.join(" ")}`);
   lines.push(`Camera: ${CAMERA[input.kind]}`);
   lines.push("Keep every named person exactly as their reference images show. No text, captions or subtitles.");
@@ -150,6 +241,9 @@ function build(args: {
   notes: string[];
   day: number;
   region: string;
+  place?: BeatPlace;
+  dialogue?: ShotLine[];
+  checkNote?: string;
   opts: ShotOptions;
 }): ShotRequest {
   const { opts } = args;
@@ -158,10 +252,10 @@ function build(args: {
   const aspect = opts.aspectRatio ?? DEFAULTS.aspectRatio;
   const refs = mode === "reference" ? pickReferences(args.resolved) : [];
   const duration = clampDuration(DURATION[args.stakes] ?? 5);
-  const prompt = composePrompt({ title: args.title, kind: args.kind, resolved: args.resolved, refs, action: args.action, setting: envText(args.day, args.region), notes: args.notes });
+  const prompt = composePrompt({ title: args.title, kind: args.kind, resolved: args.resolved, refs, action: args.action, setting: settingText(args.day, args.region, args.place, args.kind), notes: args.notes, dialogue: args.dialogue ?? [], checkNote: args.checkNote ?? "" });
   const participants: ShotParticipant[] = args.resolved.map((r) => ({ key: r.spec.key, name: r.spec.name, datom_id: etherId("char", r.spec.key), version: r.version, slot: r.slot, label: r.label }));
   const route = MODELS[mode];
-  const hashInput = stableStringify({ t: args.templateKey, p: participants.map((p) => `${p.key}@v${p.version}`), e: route.endpoint, r: resolution, d: duration, a: aspect, s: opts.seed ?? null });
+  const hashInput = stableStringify({ t: args.templateKey, p: participants.map((p) => `${p.key}@v${p.version}`), e: route.endpoint, r: resolution, d: duration, a: aspect, s: opts.seed ?? null, l: (args.dialogue ?? []).map((d) => `${d.key}:${d.text}`) });
   return {
     cacheKey: `${args.templateKey}#${fnv1a(hashInput)}`,
     templateKey: args.templateKey,
@@ -179,6 +273,8 @@ function build(args: {
     estimated_usd: estimateUsd(duration, resolution, opts.priceMultiplier),
     title: args.title,
     summary: args.action,
+    dialogue: args.dialogue ?? [],
+    checkNote: args.checkNote ?? "",
   };
 }
 
@@ -186,7 +282,11 @@ function build(args: {
 export function shotForBeat(beat: Beat, log: DatomLog, opts: ShotOptions = {}): ShotRequest {
   const specs = opts.specs ?? defaultSpecs();
   const resolved: Resolved[] = [];
-  for (const key of beat.participants) {
+  const dialogue = pickDialogue(beat, specs);
+  // Whoever speaks is drawn first, so their reference image is never cut.
+  const speakers = dialogue.map((d) => d.key);
+  const order = [...new Set([...speakers, ...beat.participants])];
+  for (const key of order) {
     const spec = specs.find((s) => s.key === key);
     if (!spec) continue;
     const tx = beat.tx || undefined;
@@ -197,7 +297,7 @@ export function shotForBeat(beat: Beat, log: DatomLog, opts: ShotOptions = {}): 
   }
   const notes = beat.mutations.filter((m) => m.kind !== "look" && m.kind !== "region").map((m) => m.summary);
   const action = beat.sceneId && beat.text.length ? beat.text.join(" ") : notes.length ? notes.join(" ") : beat.text.length ? beat.text.join(" ") : beat.title;
-  return build({ templateKey: beat.templateKey, beatId: beat.id, kind: beat.kind, title: beat.title, stakes: beat.stakes, resolved, action, notes, day: beat.day, region: beat.region, opts });
+  return build({ templateKey: beat.templateKey, beatId: beat.id, kind: beat.kind, title: beat.title, stakes: beat.stakes, resolved, action, notes, day: beat.day, region: beat.region, place: beat.place, dialogue, checkNote: checkNote(beat.check), opts });
 }
 
 function kindForStatic(sb: StaticBeat): BeatKind {

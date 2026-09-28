@@ -6,22 +6,34 @@
 // dropped rifle or a Haze-marked face are extra slots (state_variants/... or
 // outfit_variants/...) on the SAME character record, each with a visual version.
 
+import { NPCS, npcById } from "../game/content/npcs.ts";
 import { BACKGROUNDS, RECRUITS, ROSTER } from "../game/content/roster.ts";
-import type { Role, Trait } from "../game/types.ts";
+import { SCENES } from "../game/content/scenes/index.ts";
+import type { Look as NpcLook, Role, Trait } from "../game/types.ts";
 import { REGIONS } from "../game/world.ts";
 import { etherId, slotLink, withSlots } from "./datoms.ts";
 import type { EtherRecord } from "./datoms.ts";
 
-/** How a person looks. The same five fields NPC content uses, so both feed one system. */
+/**
+ * How a person looks, as prompt text. Roster members are written straight into these fields;
+ * NPCs and named strangers arrive as the game's structured `Look` and go through
+ * `visualFromLook`. Both read out through `visualText`, so every character is described in
+ * the same order and the same words wherever the description came from.
+ */
 export interface VisualDescription {
   build?: string;
   age?: string;
+  skin?: string;
   hair?: string;
   clothing?: string;
   prop?: string;
+  /** Two or three dominant colours. */
+  palette?: string;
+  /** Scars, injuries, tics. */
+  marks?: string;
 }
 
-export type CharacterKind = "leader" | "companion" | "recruit" | "npc" | "archetype";
+export type CharacterKind = "leader" | "companion" | "recruit" | "npc" | "stranger" | "archetype";
 
 export interface CharacterSpec {
   /** Stable key: a roster id, "leader", "npc.<id>" or "archetype.<id>". */
@@ -154,17 +166,8 @@ const ROSTER_VISUALS: Record<string, VisualDescription> = {
   elspeth: V("small, straight-backed", "60", "white hair under a black widow's cap", "black mourning dress with a shawl", "ledger of names, a pencil behind her ear"),
 };
 
-const RECRUIT_VISUALS: Record<string, VisualDescription> = {
-  mattie: V("slender, dust-streaked", "early 20s", "chestnut hair tied with string", "a doctor's daughter's torn good dress under a man's coat", "small medical bag"),
-  juniper: V("small, alert", "11", "cropped black hair", "a boy's shirt and braces too big for her", "a whittled bone whistle"),
-  thaddeus: V("tall, squared", "late 30s", "shaved head, tidy beard", "Company guard's coat with the badge cut off", "old service rifle"),
-  birdie: V("stocky, limping", "mid-40s", "short curls under a tinker's cap", "patched canvas smock with pots hung from the belt", "walking stick and a tinker's kit"),
-  ambrose: V("thin, hollow-eyed", "late 60s", "tonsured, wispy white", "scorched brown monk's robe", "wooden mission bell on a cord"),
-  rue: V("lean, sunburnt", "late 20s", "auburn hair in a rope-tied ponytail", "drover's duster and spurs", "coiled lariat and a revolver"),
-  orin: V("narrow, twitchy", "30", "lank fair hair", "soot-blackened ledger clerk's coat", "burnt ledger clutched to his chest"),
-  hollis: V("long-limbed, still", "mid-20s", "dark hair under a flat cap", "ferryman's oilskin and waders", "borrowed rifle and a boat hook"),
-  nell: V("round, careful", "50", "grey hair in two neat coils", "postmistress's buttoned jacket and cap", "leather mail sack"),
-};
+/** Named companions describe themselves: their structured Look is the only source. */
+const recruitVisual = (id: string): VisualDescription => visualFromLook(npcById(id)!.look);
 
 const LEADER_VISUALS: Record<string, VisualDescription> = {
   surveyor: V("lean, sun-browned", "early 40s", "short dark hair greying at the temples", "wide-brimmed hat, long dust coat, surveyor's boots", "a lit pitch torch"),
@@ -190,7 +193,38 @@ function roleTraitsText(role?: Role, traits?: Trait[]): string {
 }
 
 export function visualText(v: VisualDescription): string {
-  return [v.build, v.age && `${v.age}`, v.hair, v.clothing, v.prop && `carrying ${v.prop}`].filter(Boolean).join("; ");
+  return [v.build, v.age, v.skin && `${v.skin} skin`, v.hair, v.clothing, v.palette && `colours: ${v.palette}`, v.prop && `carrying ${v.prop}`, v.marks && `marked by ${v.marks}`]
+    .filter(Boolean)
+    .join("; ");
+}
+
+/** Map the game's structured `Look` (NPCs, named strangers) into the story's description fields. */
+export function visualFromLook(l: NpcLook): VisualDescription {
+  const hair = l.hair.style === "bald" ? "bald" : l.hair.style === "covered" ? `hair covered, ${l.hair.color}` : `${l.hair.style} hair, ${l.hair.color}`;
+  const facial = l.hair.facial === "none" ? "" : l.hair.facial.replace("-", " ");
+  return {
+    build: `${l.build} build, ${l.height}`,
+    age: l.age < 16 ? `a child of ${l.age}` : `age ${l.age}`,
+    skin: l.skin,
+    hair: facial ? `${hair}, ${facial}` : hair,
+    clothing: l.clothing.join(", "),
+    palette: l.palette.join(", "),
+    prop: l.prop.desc,
+    marks: l.marks.length ? l.marks.join("; ") : undefined,
+  };
+}
+
+/** Same person? Age, skin, hair and the defining prop survive the variations scenes make to a look. */
+function sameFace(a: NpcLook, b: NpcLook): boolean {
+  return a.age === b.age && a.skin === b.skin && a.hair.color === b.hair.color && a.hair.style === b.hair.style && a.prop.id === b.prop.id;
+}
+
+/** The character key a scene's stranger is drawn as: the named NPC if it is that person, else its own. */
+export function strangerKey(sceneId: string): string | null {
+  const def = SCENES.find((s) => s.id === sceneId);
+  if (!def?.stranger) return null;
+  const npc = NPCS.find((n) => sameFace(n.look, def.stranger!.look));
+  return npc ? npc.id : `stranger.${sceneId}`;
 }
 
 function backgroundOf(role?: Role, traits?: Trait[]): string {
@@ -223,7 +257,7 @@ export function characterSpecs(opts: CharacterSpecOptions = {}): CharacterSpec[]
     out.push({ key: t.id, name: t.name, kind: "companion", role: t.role, traits: t.traits, bio: t.bio, visual: ROSTER_VISUALS[t.id], kit: kitFor(t.id, t.role) });
   }
   for (const t of RECRUITS) {
-    out.push({ key: t.id, name: t.name, kind: "recruit", role: t.role, traits: t.traits, bio: t.bio, visual: RECRUIT_VISUALS[t.id], kit: kitFor(t.id, t.role) });
+    out.push({ key: t.id, name: t.name, kind: "recruit", role: t.role, traits: t.traits, bio: t.bio, visual: recruitVisual(t.id), kit: kitFor(t.id, t.role) });
   }
   for (const n of opts.npcs ?? []) {
     out.push({
@@ -236,6 +270,16 @@ export function characterSpecs(opts: CharacterSpecOptions = {}): CharacterSpec[]
       visual: n.visual,
       kit: n.role ? [ROLE_PROP[n.role]] : [],
     });
+  }
+  // Strangers with a face of their own. A stranger who is one of the named NPCs is that NPC's datom,
+  // so the face met on the road is the face that later joins.
+  const known = new Set(out.map((c) => c.key));
+  for (const def of SCENES) {
+    if (!def.stranger) continue;
+    const key = strangerKey(def.id)!;
+    if (known.has(key)) continue;
+    known.add(key);
+    out.push({ key, name: def.stranger.name, kind: "stranger", bio: def.stranger.look.summary, visual: visualFromLook(def.stranger.look), kit: [] });
   }
   for (const a of ARCHETYPES) {
     out.push({ key: `archetype.${a.key}`, name: a.name, kind: "archetype", bio: a.bio, visual: a.visual, kit: [] });

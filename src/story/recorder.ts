@@ -7,7 +7,7 @@ import type { CharacterSpec, CharacterSpecOptions } from "./characters.ts";
 import { DatomLog, fnv1a, stableStringify } from "./datoms.ts";
 import type { DatomLogJson, Json, TxOp } from "./datoms.ts";
 import { ATTR, charEntity, chronicle, lookOps, newLog, toSnapshot } from "./mutations.ts";
-import type { Beat, SnapshotInput, StorySnapshot } from "./mutations.ts";
+import type { Beat, BeatScreens, SnapshotInput, StorySnapshot } from "./mutations.ts";
 
 export interface RunRecord {
   runId: string;
@@ -75,9 +75,9 @@ export class StoryRecorder {
     return this.specs;
   }
 
-  /** Chronicle one choice. Returns the recorded beat, or null when nothing worth telling happened. */
-  record(before: SnapshotInput, after: SnapshotInput, choiceId: string, text?: string[]): Beat | null {
-    const { beat, mutations } = chronicle(before, after, choiceId, { index: this.beats.length, log: this.log, specs: this.specs, text });
+  /** Chronicle one choice. `screens` (the screen before the choice and the one it returned) adds speech, the check and the route. Returns the recorded beat, or null when nothing worth telling happened. */
+  record(before: SnapshotInput, after: SnapshotInput, choiceId: string, text?: string[], screens?: BeatScreens): Beat | null {
+    const { beat, mutations } = chronicle(before, after, choiceId, { index: this.beats.length, log: this.log, specs: this.specs, text, screens });
     if (beat.stakes === "quiet" && !mutations.length) {
       this.skipped++;
       return null;

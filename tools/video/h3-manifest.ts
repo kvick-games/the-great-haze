@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { SCENARIOS } from "./scenarios/defs.ts";
 import { MAX_NAMED, buildScenario, selectRefs } from "./scenarios/build.ts";
 import type { Scenario, Segment } from "./scenarios/build.ts";
-import { CAMERA } from "../../src/story/shots.ts";
+import { CAMERA, actingOf } from "../../src/story/shots.ts";
 import type { ShotRequest } from "../../src/story/shots.ts";
 import type { Beat, BeatKind } from "../../src/story/mutations.ts";
 import { parseArgs } from "./args.ts";
@@ -117,9 +117,17 @@ export function h3Prompt(req: ShotRequest, beat: Beat, refs = selectRefs(req)): 
     .filter((sent) => !/^(You cover \d+ miles|Stops and delays|The Haze advances|The gap is)/.test(sent))
     .join(" ");
   const show = field(req.prompt, "Show clearly:");
-  const say = dialogueOf(beat.text);
-  const speech = say.map((s) => `<d>[English] ${s}</d>`).join(" ");
-  const shot = [CAMERA[beat.kind], setting, ...cast, happens, show && !happens.includes(show) ? `Show clearly: ${show}` : "", speech, "Keep every named person exactly as in their reference images."]
+  const exchange = field(req.prompt, "The exchange:");
+  // Spoken lines come from the screen (who says what, how). Quoted text in the narration is the fallback.
+  const speech = req.dialogue.length
+    ? req.dialogue
+        .map((d) => {
+          const idx = refs.findIndex((r) => r.character === d.key);
+          return `${d.name}${idx >= 0 ? ` (Image ${idx + 1})` : ""}, ${actingOf(d) || "speaking"}: <d>[English] ${d.text}</d>`;
+        })
+        .join(" ")
+    : dialogueOf(beat.text).map((t) => `<d>[English] ${t}</d>`).join(" ");
+  const shot = [CAMERA[beat.kind], setting, ...cast, happens, exchange, show && !happens.includes(show) ? `Show clearly: ${show}` : "", speech, "Keep every named person exactly as in their reference images."]
     .filter(Boolean)
     .join(" ");
   return ["integrated_multimodal_description:", `[Shot 1] ${shot}`, `overall_soundscape: ${SOUND[beat.kind] ?? SOUND.default}`, `non_diegetic_music: ${MUSIC[beat.kind] ?? MUSIC.default}`];

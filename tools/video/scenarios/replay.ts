@@ -31,7 +31,7 @@ export interface ReplayResult {
 
 export function replay(plan: ReplayPlan): ReplayResult {
   const rand = makeRand(plan.seed * 7919 + 13);
-  const game = Game.create({ seed: plan.seed, leaderName: "Bot", background: "surveyor", ...plan.game });
+  const game = Game.create({ seed: plan.seed, leaderName: "Cass Marlow", background: "surveyor", ...plan.game });
   const choices: string[] = [];
   const stepOfBeat: number[] = [];
   let recorder: StoryRecorder | null = null;
@@ -47,8 +47,9 @@ export function replay(plan: ReplayPlan): ReplayResult {
     if (forced !== undefined) id = forced;
     const before = game.serialize();
     if (!recorder) recorder = StoryRecorder.start(before, { seed: plan.seed, options: plan.storyOptions ?? {} });
-    game.choose(id);
-    const beat = recorder.record(before, game.serialize(), id);
+    const screenBefore = game.screen();
+    const screenAfter = game.choose(id);
+    const beat = recorder.record(before, game.serialize(), id, undefined, { before: screenBefore, after: screenAfter });
     if (beat) stepOfBeat[recorder.beats.length - 1] = step;
     choices.push(id);
     step++;
@@ -59,5 +60,7 @@ export function replay(plan: ReplayPlan): ReplayResult {
 
 export function beatLine(b: Beat): string {
   const muts = b.mutations.filter((m) => m.kind !== "region" && m.kind !== "wagons").map((m) => `${m.kind}:${m.subject}`).join(",");
-  return `#${b.index} d${b.day} ${b.kind}/${b.stakes} ${b.sceneId ?? "-"}(${b.truth ?? "-"}) ${b.choiceId} :: ${b.title} [${muts}]`;
+  const say = (b.talk ?? []).filter((l) => l.phase === "outcome").map((l) => `${l.name}(${l.mood})`).join("/");
+  const chk = b.check ? ` check:${b.check.kind}${b.check.success ? "+" : "-"}` : "";
+  return `#${b.index} d${b.day} ${b.kind}/${b.stakes} ${b.sceneId ?? "-"}(${b.truth ?? "-"}) ${b.choiceId} :: ${b.title} [${muts}]${chk}${say ? ` say:${say}` : ""}`;
 }
