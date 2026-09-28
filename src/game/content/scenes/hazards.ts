@@ -47,7 +47,8 @@ export const HAZARDS: SceneDef[] = [
         label: "Abandon the wagon and redistribute the load",
         hint: "Fast. You will not be able to carry as much.",
         hours: 1,
-        requires: [{ partyMin: 1 }],
+        requires: [{ wagonsMin: 2 }],
+        why: "It is your last wagon.",
         results: {
           any: [o("You unhitch the oxen, split the cargo across the other wagons, and leave the broken one to the Haze.", [fx.wagons(-1), fx.nerve("all", -3)])],
         },

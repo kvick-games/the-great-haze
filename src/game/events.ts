@@ -17,6 +17,7 @@ function eligible(env: Env, def: SceneDef): boolean {
   if (def.minMile !== undefined && s.miles < def.minMile) return false;
   if (def.maxMile !== undefined && s.miles > def.maxMile) return false;
   if (def.once && s.used.includes(def.id)) return false;
+  if (def.others && s.party.filter((m) => m.alive && !m.isLeader).length < 2) return false;
   env.bind = {};
   return allConds(env, def.when);
 }

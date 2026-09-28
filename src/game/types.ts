@@ -85,6 +85,7 @@ export type Who =
   | "others"
   | "weakest"
   | "fogsick"
+  | { first: Who[] }
   | { role: Role }
   | { trait: Trait };
 
@@ -96,6 +97,9 @@ export type Cond =
   | { flag: string; min?: number; max?: number }
   | { gapBelow: number }
   | { gapAbove: number }
+  | { wagonsMin: number }
+  | { leaderFog: boolean }
+  | { recruitLeft: string }
   | { fog: true }
   | { partyMin: number }
   | { partyMax: number }
@@ -186,6 +190,8 @@ export interface SceneDef {
   title: string;
   intro: string[];
   tells?: Tell[];
+  /** {actor} and {other} are drawn from the party excluding the wagon-master (needs two others). */
+  others?: boolean;
   /** Dispute scenes: how likely the pair (a, b) is to be the one quarrelling. 0 = ineligible. */
   pairWeight?: (a: Member, b: Member, bond: number) => number;
   options: OptionDef[];

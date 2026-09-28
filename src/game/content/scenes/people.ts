@@ -450,9 +450,11 @@ export const CRISES: SceneDef[] = [
         label: "Ask for a volunteer to hold the line",
         hint: "Someone stays behind with the last torches. They do not come back.",
         actor: "weakest",
+        requires: [{ partyMin: 2 }],
+        why: "There is no one else to ask.",
         results: {
           any: [
-            o("The weakest among you climbs down from the wagon without being asked, and takes the last of the torches, and walks back toward the red. Nobody watches. Everybody hears.", [fx.kill("actor", "held the Haze at bay so the train could run"), fx.gap([12, 16]), fx.nerve("all", -10)], 1),
+            o("The weakest among you climbs down from the wagon without being asked, and takes the last of the torches, and walks back toward the red. Nobody watches. Everybody hears.", [fx.kill("actor", "held the Haze at bay so the train could run"), fx.res("torches", [-8, -4]), fx.gap([12, 16]), fx.nerve("all", -10)], 1),
           ],
         },
       },
@@ -460,7 +462,8 @@ export const CRISES: SceneDef[] = [
         id: "cut-wagon",
         label: "Cut loose a wagon and its cargo",
         hint: "Lighter wagons are faster wagons.",
-        requires: [{ partyMin: 1 }],
+        requires: [{ wagonsMin: 2 }],
+        why: "There is only one wagon left to cut loose.",
         results: { any: [o("You cut the traces. The wagon rolls a little way by itself, and stops, and the fog folds over it.", [fx.wagons(-1), fx.gap([8, 11]), fx.nerve("all", -4)], 1)] },
       },
       {

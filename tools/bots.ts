@@ -219,10 +219,10 @@ export function chooseOption(game: Game, strategy: Strategy, rand: Rand): string
       if (def.id === "fogsick-quarantine") return opts.find((o) => o.id === "treat")?.id ?? "isolate";
       if (def.id === "deserter") return opts.find((o) => o.id === "shame")?.id ?? "confront";
       if (def.id === "last-stand") {
-        return opts.find((o) => o.id === "firebreak")?.id ?? (s.train.wagons > 1 ? "cut-wagon" : "volunteer");
+        for (const id of ["firebreak", "cut-wagon", "volunteer", "refuse"]) if (opts.some((o) => o.id === id)) return id;
       }
       if (def.id === "the-gate") {
-        return opts.find((o) => o.id === "enter")?.id ?? opts.find((o) => o.id === "leave-marked")!.id;
+        for (const id of ["enter", "leave-marked", "smuggle", "stay-out"]) if (opts.some((o) => o.id === id)) return id;
       }
       if (def.kind === "landmark") {
         // Route choices: the cautious take the safe road, the reckless the fast one.

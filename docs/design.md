@@ -72,12 +72,13 @@ never-stopping play must be shown to abandon real people while always-helping pl
   (+8) and **lulls** (−5). A *haunted* companion can hear a surge coming and will warn you at the morning plan.
 - **It never lets you get comfortable.** Past a gap of about 62 miles the Haze quickens in proportion to how far ahead
   you are, so a cushion cannot grow without bound. Simulated careful runs sit around 70 miles early on and are squeezed
-  toward the mid-40s by the end. Without this rule, early slack made the first third of the road toothless.
+  toward the 40s by the end. The plan screen shows the Haze's expected move including this catch-up. Without this rule, early slack made the first third of the road toothless.
 - You advance `travel hours × mph`. Hours spent on anything else reduce travel hours. Overflow spills into tomorrow.
 - Zones: `far ≥ 45`, `near ≥ 25`, `close ≥ 10`, `upon < 10`. The closer it is, the more it costs nerve, the more
   Hollowed and Haze phenomena show up, and (below 32 miles) the more torches you burn each night.
 - **Fogsick.** Breathing the Haze gives stages 0–3. At 3 a companion is *Turned*. If the wagon-master reaches
-  stage 3 the run ends. Haze veils block much of it. Physic eases one stage at a time and never cures it.
+  stage 3 the run ends. Haze veils block much of it. Physic eases a stage at a time but never below stage I; only
+  distance from the Haze wears the mark away, slowly.
 - **Last stand.** When the gap falls below 14 a scene offers ways to buy miles, and every one of them costs: send
   the weakest companion back with the last torches (+12–16 miles), cut a wagon loose, burn a firebreak, or refuse.
 
@@ -94,7 +95,8 @@ Members have **health**, **nerve**, **trust** in you, **bonds** with each other,
 - **Disputes** are scenes like any other: back one side, mediate (costs hours), cut it off, or look away and risk
   it turning into a fistfight. Some accusations have hidden truth and tells too (who *really* took the rations?).
 - **Injury.** Zero health does not kill you outright. It leaves you **dying**, and you have until the second nightfall
-  to spend physic. Another hit while dying is fatal.
+  to spend physic. Another hit while dying is fatal, and rest does not help: only treatment does. Wounds bleed a little
+  each night and can close on their own; the worse off you are, the less likely.
 - **The wagon-master** is a person in the party. If they die, the run ends. The weakest-companion sacrifice and
   crisis scenes never target them.
 
@@ -141,8 +143,8 @@ npm run simulate -- 200 dire
 npm run trace -- cautious 7        # a full transcript of one bot run
 ```
 
-Current targets on **Exodus (normal)**, measured by bots: careful play wins about 35–40%, always-help about 10%,
-never-stop about 1%, random about 0%. On **Ash Reckoning (dire)** careful play wins roughly 10–13%. The bots read the
+Current targets on **Exodus (normal)**, measured by bots: careful play wins about 30%, always-help under 10%,
+never-stop about 0%, random about 0%. On **Ash Reckoning (dire)** careful play wins roughly 13%. The bots read the
 scene data directly so they are *better* at reading tells than a human will be; treat these as upper bounds.
 
 ## Architecture and Dream Engine

@@ -137,6 +137,7 @@ export const STRANGERS: SceneDef[] = [
     id: "lost-child",
     kind: "stranger",
     weight: 4,
+    when: [{ recruitLeft: "juniper" }],
     genuineOdds: 0.5,
     title: "A girl on the road, alone",
     intro: ["A girl of ten or so is walking down the middle of the road, carrying a single shoe. She stops when she sees you and waits."],
@@ -193,6 +194,7 @@ export const STRANGERS: SceneDef[] = [
     id: "stranded-caravan",
     kind: "stranger",
     weight: 4,
+    when: [{ recruitLeft: "orin" }],
     genuineOdds: 0.4,
     title: "The stalled train",
     intro: [
@@ -342,7 +344,7 @@ export const STRANGERS: SceneDef[] = [
         label: "Let a speaker or a believer talk to him",
         hint: "Good with words? Now is the time.",
         hours: 1,
-        actor: { role: "speaker" },
+        actor: { first: [{ role: "speaker" }, { trait: "pious" }] },
         requires: [{ any: [{ role: "speaker" }, { trait: "pious" }] }],
         why: "No one here can speak for you.",
         results: {
@@ -539,6 +541,7 @@ export const STRANGERS: SceneDef[] = [
     id: "doctor-pinned",
     kind: "stranger",
     weight: 2,
+    when: [{ recruitLeft: "mattie" }],
     genuineOdds: 0.5,
     title: "Under the barn beam",
     intro: [
@@ -586,6 +589,7 @@ export const STRANGERS: SceneDef[] = [
     id: "uniformed-men",
     kind: "stranger",
     weight: 3,
+    when: [{ recruitLeft: "thaddeus" }],
     genuineOdds: 0.4,
     title: "Deserters",
     intro: [

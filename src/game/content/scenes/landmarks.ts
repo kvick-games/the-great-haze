@@ -232,12 +232,12 @@ export const LANDMARK_SCENES: SceneDef[] = [
         id: "leave-marked",
         label: "Leave the marked in the quarantine ward, and go in without them",
         hint: "\"For observation.\" Nobody has ever come out of it.",
-        requires: [{ fog: true }],
-        why: "No one here is marked.",
+        requires: [{ fog: true }, { leaderFog: false }],
+        why: "Either no one is marked, or the mark is on you. You cannot leave yourself behind.",
         results: {
           any: [
             o("They take the marked ones gently, and put them in tents beyond the wall. They will be looked after, the woman says. You believe her. You cannot make yourself believe her.", [
-              fx.leave({ trait: "haunted" }, "left in the quarantine ward at the Gate"),
+              fx.leave("fogsick", "left in the quarantine ward at the Gate"),
               fx.end("victory", "The Blue Reach: the ones you left", [
                 "The Gate opens for the rest of you. It closes on the marked, and on the last promise you made them.",
                 "The sky is blue. It will be blue for a long time, if you can stand to look at it.",

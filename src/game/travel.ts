@@ -30,6 +30,16 @@ export function baseHazeMiles(s: GameState): number {
   return regionAt(s.miles).haze * DIFFICULTY[s.difficulty].haze;
 }
 
+/** Catch-up pressure: the Haze quickens when the wagons pull far ahead. */
+export function catchupMiles(s: GameState): number {
+  return Math.max(0, s.gap - TUNING.catchupGap) * TUNING.catchupRate;
+}
+
+/** What the Haze is expected to cover today, before noise and surges. This is what the party can see. */
+export function expectedHazeMiles(s: GameState): number {
+  return baseHazeMiles(s) + catchupMiles(s);
+}
+
 export interface TravelPlan {
   /** Hours actually spent moving today. */
   travelHours: number;

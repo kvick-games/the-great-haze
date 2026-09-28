@@ -8,6 +8,8 @@ export interface MemberTemplate {
   bio: string;
   maxHealth?: number;
   nerve?: number;
+  /** Recruitable by scenes that offer "someone" rather than a named person. */
+  generic?: boolean;
   /** Starting bond with other roster ids, if both are in the party. */
   ties?: Record<string, number>;
 }
@@ -186,6 +188,7 @@ export const RECRUITS: MemberTemplate[] = [
     role: "mechanic",
     traits: ["kind", "sickly"],
     bio: "A tinker with a mule and a limp. The mule is dead. The limp remains.",
+    generic: true,
     maxHealth: 75,
   },
   {
@@ -201,6 +204,7 @@ export const RECRUITS: MemberTemplate[] = [
     role: "hunter",
     traits: ["hothead", "charming"],
     bio: "A drover who lost her herd and her patience in the same week.",
+    generic: true,
   },
   {
     id: "orin",
@@ -209,5 +213,22 @@ export const RECRUITS: MemberTemplate[] = [
     traits: ["paranoid", "coward"],
     bio: "Left alone in a burnt wagon with a ledger and a cough. He is sure someone is behind him.",
     maxHealth: 65,
+  },
+  {
+    id: "hollis",
+    name: "Hollis Grey",
+    role: "hunter",
+    traits: ["kind", "stoic"],
+    bio: "A ferryman's son with a borrowed rifle and a way of standing very still.",
+    generic: true,
+  },
+  {
+    id: "nell",
+    name: "Nell Ashby",
+    role: "speaker",
+    traits: ["paranoid", "coward"],
+    bio: "A postmistress who kept the last mail sacks and reads everything twice.",
+    maxHealth: 70,
+    generic: true,
   },
 ];

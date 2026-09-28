@@ -115,10 +115,11 @@ export function processNight(env: Env, restQuality: number): NightReport {
       continue;
     }
     if (m.wounded) {
-      hurt(env, m, 3, notes);
+      hurt(env, m, 2, notes);
       if (!m.alive || m.dying) continue;
-      const pHeal = 0.2 + (hasRole(s, "medic") ? 0.15 : 0);
-      if (m.health > 35 && rng.chance(pHeal)) {
+      // Bodies mend on their own more readily when they are not already close to the edge.
+      const pHeal = (m.health > 35 ? 0.2 : 0.1) + (hasRole(s, "medic") ? 0.15 : 0);
+      if (rng.chance(pHeal)) {
         m.wounded = false;
         notes.push(`${firstName(m)}'s wound closes on its own.`);
       }

@@ -44,10 +44,10 @@ import { LANDMARKS, STORES, regionAt } from "./world.ts";
 import { BACKGROUNDS, ROSTER } from "./content/roster.ts";
 import type { MemberTemplate } from "./content/roster.ts";
 import { finish } from "./ending.ts";
-import { baseHazeMiles, hoursToMiles, mph, planTravel } from "./travel.ts";
+import { baseHazeMiles, catchupMiles, expectedHazeMiles, hoursToMiles, mph, planTravel } from "./travel.ts";
 import { processNight } from "./night.ts";
 import { rollDay } from "./events.ts";
-import { buildScene, doLook, optionAvailable, resolveOption, requireScene, sceneOptions, sceneText, bindFor } from "./scenes.ts";
+import { buildScene, doLook, hasPair, optionAvailable, resolveOption, requireScene, sceneOptions, sceneText, bindFor } from "./scenes.ts";
 import { combatOptions, combatRound, combatSummary, enemyDef, startCombat } from "./combat.ts";
 
 export interface NewGameOptions {
@@ -236,7 +236,7 @@ export class Game {
       milesToGo: Math.max(0, Math.round(TUNING.totalMiles - s.miles)),
       gap: Math.round(s.gap * 10) / 10,
       zone,
-      hazeToday: Math.round(baseHazeMiles(s)),
+      hazeToday: Math.round(expectedHazeMiles(s)),
       region: region.name,
       sky: region.sky[ZONE_INDEX[zone]],
       scrip: s.scrip,
@@ -428,7 +428,7 @@ export class Game {
     const lines: string[] = [
       `${region.blurb}`,
       region.sky[ZONE_INDEX[zone]],
-      `The Haze is ${Math.round(s.gap)} miles behind you and moves about ${Math.round(baseHazeMiles(s))} miles a day here.`,
+      `The Haze is ${Math.round(s.gap)} miles behind you and moves about ${Math.round(expectedHazeMiles(s))} miles a day here.`,
       `Food for about ${daysFood.toFixed(1)} days at the current ration.`,
     ];
     if (s.today.forecast) {
@@ -500,11 +500,11 @@ export class Game {
           disabled: s.res.medicine < 1 ? "No physic." : undefined,
         });
       }
-      if (m.fog > 0) {
+      if (m.fog >= 2) {
         opts.push({
           id: `tend:${m.id}:fog`,
           label: `Treat ${firstName(m)}'s fogsickness`,
-          hint: "Costs 2 physic. Eases one stage. It is never gone for good.",
+          hint: "Costs 2 physic. Eases one stage, never below stage I. The Haze does not let go.",
           hours: tendHours,
           disabled: s.res.medicine < 2 ? "You need 2 physic." : undefined,
         });
@@ -531,7 +531,9 @@ export class Game {
 
     if (p.kind === "store" && (id.startsWith("buy:") || id.startsWith("sell:"))) {
       const [verb, item, qty] = id.split(":");
-      this.trade(item as ResourceId, (verb === "buy" ? 1 : -1) * Number(qty));
+      const n = Number(qty);
+      if (!Number.isInteger(n) || n <= 0) throw new Error(`Bad quantity in "${id}".`);
+      this.trade(item as ResourceId, (verb === "buy" ? 1 : -1) * n);
       return this.screen();
     }
 
@@ -612,6 +614,7 @@ export class Game {
   trade(item: ResourceId, qty: number): string {
     const s = this.s;
     if (s.pending.kind !== "store") throw new Error("There is no store here.");
+    if (!Number.isInteger(qty) || qty === 0) throw new Error("Choose a whole number of items to buy or sell.");
     const storeId = s.pending.storeId;
     const def = STORES[storeId];
     const line = this.storeView(storeId).lines.find((l) => l.id === item);
@@ -628,7 +631,7 @@ export class Game {
       }
       const crooked = def.rigged && !(s.flags[`inspected:${storeId}`] ?? 0) && (item === "rations" || item === "medicine");
       s.scrip -= n * line.price;
-      s.res[item] += crooked ? Math.floor(n * (def.rigged as number)) : n;
+      s.res[item] += crooked ? Math.round(n * (def.rigged as number)) : n;
       stock[item] = (stock[item] ?? 0) - n;
       return `Bought ${n} ${line.name.toLowerCase()} for ${n * line.price} scrip.`;
     }
@@ -700,7 +703,7 @@ export class Game {
         m.sick = false;
         notes.push(`${firstName(m)}'s fever breaks.`);
       } else if (cond === "fog") {
-        m.fog = Math.max(0, m.fog - 1);
+        m.fog = Math.max(1, m.fog - 1);
         notes.push(`${firstName(m)}'s eyes look a little more like their own.`);
       }
     }
@@ -745,10 +748,12 @@ export class Game {
   private startNextDay(): void {
     const s = this.s;
     s.day++;
+    // Time spent since the last dawn's travel was resolved (night crises, landmark business) comes out of today.
+    s.carryHours = Math.min(TUNING.maxCarryHours, s.carryHours + s.today.hoursUsed);
     const noise = 1 + this.rng.float(-TUNING.hazeNoise, TUNING.hazeNoise);
     let haze = baseHazeMiles(s) * noise;
     // The Haze is patient and relentless: pull far ahead and it quickens.
-    haze += Math.max(0, s.gap - TUNING.catchupGap) * TUNING.catchupRate;
+    haze += catchupMiles(s);
     let surge: "surge" | "lull" | null = null;
     const roll = this.rng.next();
     if (roll < TUNING.surgeChance) {
@@ -787,6 +792,10 @@ export class Game {
         case "scene": {
           const def = requireScene(item.id);
           const env = this.env();
+          // The world moved on since this was queued: the person it was about may be gone.
+          if ([item.actor, item.a, item.b].some((id) => id && !byId(s, id)?.alive)) continue;
+          if (def.pairWeight && !(item.a && item.b) && !hasPair(env, def)) continue;
+          if (def.others && living(s).filter((m) => !m.isLeader).length < 2) continue;
           const scene = buildScene(env, item);
           s.recent.push(def.id);
           if (s.recent.length > 12) s.recent.shift();
@@ -861,6 +870,8 @@ export class Game {
     const plan = planTravel(s);
     const { travelHours, restQuality } = plan;
     s.carryHours = Math.min(TUNING.maxCarryHours, plan.carry);
+    // Today's business is settled. Anything that happens after nightfall (crises, landmarks) is tomorrow's cost.
+    s.today.hoursUsed = 0;
 
     const gapBefore = s.gap;
     const distance = Math.min(TUNING.totalMiles - s.miles, travelHours * mph(s));

@@ -270,6 +270,7 @@ export const HAZE_EVENTS: SceneDef[] = [
     id: "voices-in-the-fog",
     kind: "haze",
     weight: 4,
+    others: true,
     closeBias: 3,
     title: "Voices in the fog",
     intro: [
@@ -358,7 +359,7 @@ export const HAZE_EVENTS: SceneDef[] = [
         id: "decode",
         label: "Have {actor} decode it",
         hours: 1,
-        actor: { role: "speaker" },
+        actor: { first: [{ role: "speaker" }, { role: "scout" }] },
         requires: [{ any: [{ role: "speaker" }, { role: "scout" }] }],
         why: "No one here reads the code.",
         results: {
@@ -445,6 +446,7 @@ export const ODDITIES: SceneDef[] = [
     id: "headcount",
     kind: "oddity",
     weight: 3,
+    when: [{ recruitLeft: "orin" }],
     closeBias: 2,
     title: "One too many",
     intro: [
@@ -527,6 +529,7 @@ export const RESPITES: SceneDef[] = [
     id: "shared-supper",
     kind: "respite",
     weight: 3,
+    others: true,
     title: "A small kindness",
     intro: ["You catch {actor} pressing half of their supper into {other}'s hands, and looking away so it will not be thanked."],
     options: [

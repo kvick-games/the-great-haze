@@ -28,6 +28,10 @@ export interface Bind {
   other?: string;
   a?: string;
   b?: string;
+  /** Draw {actor}/{other} from everyone but the wagon-master. */
+  noLeader?: boolean;
+  /** The pair chosen by "two", fixed for the whole outcome so every effect hits the same people. */
+  pair?: string[];
 }
 
 export interface Env {
@@ -53,7 +57,8 @@ const RES_NAME: Record<ResourceId, string> = {
 function ensureActor(env: Env): Member | undefined {
   let m = byId(env.s, env.bind.actor);
   if (m && m.alive) return m;
-  const pool = able(env.s).length ? able(env.s) : living(env.s);
+  let pool = able(env.s).length ? able(env.s) : living(env.s);
+  if (env.bind.noLeader && pool.some((x) => !x.isLeader)) pool = pool.filter((x) => !x.isLeader);
   if (!pool.length) return undefined;
   m = env.rng.pick(pool);
   env.bind.actor = m.id;
@@ -64,7 +69,8 @@ function ensureOther(env: Env): Member | undefined {
   let m = byId(env.s, env.bind.other);
   if (m && m.alive && m.id !== env.bind.actor) return m;
   const actor = ensureActor(env);
-  const pool = living(env.s).filter((x) => x.id !== actor?.id);
+  let pool = living(env.s).filter((x) => x.id !== actor?.id);
+  if (env.bind.noLeader && pool.some((x) => !x.isLeader)) pool = pool.filter((x) => !x.isLeader);
   if (!pool.length) return undefined;
   m = env.rng.pick(pool);
   env.bind.other = m.id;
@@ -75,6 +81,13 @@ export function resolveWho(env: Env, who: Who): Member[] {
   const { s, rng } = env;
   const alive = living(s);
   if (typeof who === "object") {
+    if ("first" in who) {
+      for (const w of who.first) {
+        const found = resolveWho(env, w);
+        if (found.length) return found;
+      }
+      return [];
+    }
     if ("role" in who) return alive.filter((m) => m.role === who.role);
     return alive.filter((m) => m.traits.includes(who.trait));
   }
@@ -107,8 +120,11 @@ export function resolveWho(env: Env, who: Who): Member[] {
       return pool.length ? [rng.pick(pool)] : [];
     }
     case "two": {
-      const shuffled = rng.shuffle(alive);
-      return shuffled.slice(0, 2);
+      const kept = (env.bind.pair ?? []).map((id) => byId(s, id)).filter((m): m is Member => !!m && m.alive);
+      if (kept.length === Math.min(2, alive.length)) return kept;
+      const pair = rng.shuffle(alive).slice(0, 2);
+      env.bind.pair = pair.map((m) => m.id);
+      return pair;
     }
     case "all":
       return alive;
@@ -160,6 +176,9 @@ export function evalCond(env: Env, c: Cond): boolean {
   }
   if ("gapBelow" in c) return s.gap < c.gapBelow;
   if ("gapAbove" in c) return s.gap >= c.gapAbove;
+  if ("wagonsMin" in c) return s.train.wagons >= c.wagonsMin;
+  if ("leaderFog" in c) return (leader(s).fog > 0) === c.leaderFog;
+  if ("recruitLeft" in c) return !s.recruitsUsed.includes(c.recruitLeft);
   if ("fog" in c) return living(s).some((m) => m.fog > 0);
   if ("partyMin" in c) return living(s).length >= c.partyMin;
   if ("partyMax" in c) return living(s).length <= c.partyMax;
@@ -262,6 +281,7 @@ export function hurt(env: Env, m: Member, dmg: number, notes: string[], lethal =
 }
 
 export function heal(m: Member, amount: number): void {
+  if (m.dying) return; // the dying need treatment, not rest
   m.health = clamp(m.health + amount, 0, m.maxHealth);
 }
 
@@ -293,7 +313,9 @@ export function recruit(env: Env, id: string | undefined, notes: string[]): Memb
     return undefined;
   }
   const pool = RECRUITS.filter((r) => !s.recruitsUsed.includes(r.id));
-  const tpl: MemberTemplate | undefined = id ? pool.find((r) => r.id === id) : pool.length ? env.rng.pick(pool) : undefined;
+  // "Someone" never uses up a person a specific scene is saving for later.
+  const anyone = pool.filter((r) => r.generic);
+  const tpl: MemberTemplate | undefined = id ? pool.find((r) => r.id === id) : anyone.length ? env.rng.pick(anyone) : undefined;
   if (!tpl) return undefined;
   s.recruitsUsed.push(tpl.id);
   const maxHealth = tpl.maxHealth ?? 90;
@@ -364,8 +386,9 @@ export function applyEffect(env: Env, e: Effect, notes: string[]): void {
         for (const m of ms) hurt(env, m, -d, notes, e.lethal);
         if (ms.every((m) => m.alive && !m.dying)) notes.push(`${groupName(e.who, ms)}: ${d} health`);
       } else {
-        for (const m of ms) heal(m, d);
-        notes.push(`${groupName(e.who, ms)}: +${d} health`);
+        const healable = ms.filter((m) => !m.dying);
+        for (const m of healable) heal(m, d);
+        if (healable.length) notes.push(`${groupName(e.who, healable)}: +${d} health`);
       }
       return;
     }

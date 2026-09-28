@@ -4,8 +4,9 @@ import { Game } from "../src/game/game.ts";
 import { Rng } from "../src/game/rng.ts";
 import type { Env } from "../src/game/effects.ts";
 import { applyEffects } from "../src/game/effects.ts";
-import { planTravel, mph } from "../src/game/travel.ts";
-import { buildScene, resolveOption } from "../src/game/scenes.ts";
+import { planTravel, mph, expectedHazeMiles, baseHazeMiles } from "../src/game/travel.ts";
+import { buildScene, doLook, resolveOption } from "../src/game/scenes.ts";
+import { pickRoadScene } from "../src/game/events.ts";
 import { living, leader, cargoUsed, cargoCap } from "../src/game/party.ts";
 import { TUNING } from "../src/game/tuning.ts";
 
@@ -323,4 +324,203 @@ test("a crooked keeper short-weights you until you check the scales", () => {
   const torches = honest.s.res.torches;
   rigged.trade("torches", 5);
   assert.equal(rigged.s.res.torches - torches, 5);
+});
+
+// ---------------------------------------------------------------------------
+// Regressions from the independent review
+// ---------------------------------------------------------------------------
+
+function resume(g: Game): void {
+  g.s.pending = { kind: "result", title: "x", lines: [], notes: [] };
+}
+
+test("hours spent after nightfall are carried into the next day, not thrown away", () => {
+  const g = underway(21);
+  const s = g.s;
+  s.today.hazeMiles = 0;
+  s.queue = [{ t: "travel" }];
+  resume(g);
+  g.choose("continue"); // the day resolves
+  assert.equal(s.today.hoursUsed, 0, "the day's hours are settled once it resolves");
+  s.today.hoursUsed = 3; // a night crisis or landmark decision costs three hours
+  g.choose("continue"); // dawn
+  assert.equal(s.carryHours, 3);
+  assert.equal(s.today.hoursUsed, 0);
+  assert.equal(planTravel(s).travelHours, 7, "three hours off a ten hour day");
+});
+
+test("the Gate leaves the marked, not whoever happens to be haunted, and never lets a marked leader abandon themselves", () => {
+  const g = underway(22);
+  const s = g.s;
+  const dov = s.party.find((m) => m.id === "dov")!;
+  const wren = s.party.find((m) => m.id === "wren")!; // haunted, unmarked
+  dov.fog = 2;
+  s.queue = [{ t: "scene", id: "the-gate" }];
+  resume(g);
+  g.choose("continue");
+  assert.equal(s.pending.kind, "scene");
+  g.choose("leave-marked");
+  assert.equal(dov.alive, false);
+  assert.match(dov.fate ?? "", /quarantine/);
+  assert.equal(wren.alive, true, "the haunted-but-unmarked stay");
+  assert.equal(s.ending?.kind, "victory");
+
+  const h = underway(22);
+  leader(h.s).fog = 1;
+  h.s.queue = [{ t: "scene", id: "the-gate" }];
+  resume(h);
+  h.choose("continue");
+  const opts = h.screen().options;
+  assert.ok(opts.find((o) => o.id === "leave-marked")?.disabled, "you cannot leave yourself behind");
+  assert.ok(opts.find((o) => o.id === "enter")?.disabled);
+  assert.ok(!opts.find((o) => o.id === "smuggle")?.disabled);
+});
+
+test("a queued crisis about someone who has since died is dropped, not re-aimed at someone else", () => {
+  const g = underway(23);
+  const s = g.s;
+  const dov = s.party.find((m) => m.id === "dov")!;
+  dov.alive = false;
+  dov.fate = "died";
+  s.queue = [{ t: "scene", id: "turned", actor: "dov" }];
+  resume(g);
+  g.choose("continue");
+  assert.equal(s.pending.kind, "plan", "straight on to the next morning");
+});
+
+test("a quarrel is dropped if nobody is left to quarrel", () => {
+  const g = underway(24);
+  const s = g.s;
+  for (const m of s.party) if (!m.isLeader) m.alive = false, (m.fate = "gone");
+  s.queue = [{ t: "scene", id: "dead-weight" }];
+  resume(g);
+  g.choose("continue");
+  assert.equal(s.pending.kind, "plan");
+});
+
+test("last-stand options are only offered when they can actually cost something", () => {
+  const g = underway(25);
+  const s = g.s;
+  s.train.wagons = 1;
+  s.queue = [{ t: "scene", id: "last-stand" }];
+  resume(g);
+  g.choose("continue");
+  assert.ok(g.screen().options.find((o) => o.id === "cut-wagon")?.disabled, "cannot cut loose the only wagon");
+
+  const solo = underway(25);
+  for (const m of solo.s.party) if (!m.isLeader) m.alive = false, (m.fate = "gone");
+  solo.s.queue = [{ t: "scene", id: "last-stand" }];
+  resume(solo);
+  solo.choose("continue");
+  assert.ok(solo.screen().options.find((o) => o.id === "volunteer")?.disabled, "the wagon-master cannot volunteer themselves");
+
+  const pair = underway(25);
+  pair.s.res.torches = 12;
+  pair.s.queue = [{ t: "scene", id: "last-stand" }];
+  resume(pair);
+  pair.choose("continue");
+  const gap = pair.s.gap;
+  pair.choose("volunteer");
+  assert.ok(pair.s.res.torches < 12, "the volunteer takes the torches");
+  assert.ok(pair.s.gap > gap, "and buys the train miles");
+});
+
+test('"two of your people" means the same two people for every effect in an outcome', () => {
+  for (let seed = 1; seed <= 60; seed++) {
+    const g = underway(300 + seed);
+    const s = g.s;
+    s.res.veils = 0;
+    const before = new Map(s.party.map((m) => [m.id, m.nerve]));
+    applyEffects(env(g), [{ t: "status", who: "two", s: "fog" }, { t: "nerve", who: "two", d: 10 }, { t: "trust", who: "two", d: -8 }], []);
+    const fogged = s.party.filter((m) => m.fog > 0).map((m) => m.id).sort();
+    const shifted = s.party.filter((m) => m.nerve !== before.get(m.id)).map((m) => m.id).sort();
+    assert.deepEqual(fogged, shifted, `seed ${seed}: the fogged pair and the calmed pair differ`);
+  }
+});
+
+test("people-specific scenes stop appearing once their person has joined; generic recruits never use them up", () => {
+  const g = underway(26);
+  const s = g.s;
+  s.recruitsUsed.push("mattie", "juniper", "orin", "thaddeus");
+  for (let i = 0; i < 400; i++) {
+    const def = pickRoadScene(env(g));
+    assert.ok(!def || !["doctor-pinned", "lost-child", "stranded-caravan", "uniformed-men", "headcount"].includes(def.id), `${def?.id} came back after its person joined`);
+  }
+  const fresh = underway(27);
+  const generic = new Set(["birdie", "rue", "hollis", "nell"]);
+  for (let i = 0; i < 12; i++) applyEffects(env(fresh), [{ t: "recruit" }], []);
+  for (const m of fresh.s.party.filter((x) => x.recruited)) assert.ok(generic.has(m.id), `"someone" recruited the reserved ${m.id}`);
+});
+
+test("an option that names its own actor is labelled with that person", () => {
+  for (let seed = 1; seed <= 40; seed++) {
+    const g = underway(400 + seed);
+    const s = g.s;
+    s.queue = [{ t: "scene", id: "telegraph-hum" }];
+    resume(g);
+    g.choose("continue");
+    const label = g.screen().options.find((o) => o.id === "decode")!.label;
+    const capable = s.party.filter((m) => m.role === "scout" || m.role === "speaker").map((m) => m.name.split(" ")[0]);
+    assert.ok(capable.some((n) => label.includes(n)), `seed ${seed}: "${label}" should name one of ${capable.join(", ")}`);
+  }
+});
+
+test("the plan and HUD report the Haze's real expected move, including catch-up", () => {
+  const g = underway(29);
+  g.s.gap = 100;
+  const hud = g.hud();
+  assert.equal(hud.hazeToday, Math.round(expectedHazeMiles(g.s)));
+  assert.ok(hud.hazeToday > Math.round(baseHazeMiles(g.s)), "the catch-up term is visible");
+});
+
+test("physic eases the Haze's mark but never removes it; ambient healing skips the dying", () => {
+  const g = underway(30);
+  const s = g.s;
+  const m = s.party.find((x) => !x.isLeader)!;
+  m.fog = 1;
+  assert.ok(!g.screen().options.some((o) => o.id === `tend:${m.id}:fog`), "stage I cannot be treated away");
+  m.fog = 2;
+  g.choose(`tend:${m.id}:fog`);
+  assert.equal(m.fog, 1);
+  assert.ok(!g.screen().options.some((o) => o.id === `tend:${m.id}:fog`));
+
+  const d = s.party.find((x) => !x.isLeader && x.id !== m.id)!;
+  d.dying = true;
+  d.health = 1;
+  d.dyingSince = s.day;
+  applyEffects(env(g), [{ t: "hp", who: "all", d: 12 }], []);
+  assert.equal(d.health, 1, "the dying are not healed by a good night's rest");
+  assert.equal(d.dying, true);
+});
+
+test("a paranoid companion notices as much as a scout", () => {
+  const g = underway(31);
+  const s = g.s;
+  for (const m of s.party) {
+    m.role = "mechanic";
+    m.traits = ["stoic", "kind"];
+    m.nerve = 100;
+  }
+  s.party[2].traits = ["paranoid", "kind"];
+  const inst = buildScene(env(g), { t: "scene", id: "wounded-traveler" });
+  inst.tells = ["a", "b", "c", "d", "e"].map((text) => ({ text, revealed: false }));
+  inst.observer = s.party[2].id;
+  doLook(env(g), inst);
+  assert.equal(inst.tells.filter((t) => t.revealed).length, 2);
+});
+
+test("store input is validated", () => {
+  const g = fresh(32);
+  assert.throws(() => g.choose("buy:rations"), /Bad quantity/);
+  assert.throws(() => g.choose("buy:rations:1.5"), /Bad quantity/);
+  assert.throws(() => g.choose("sell:rations:-5"), /Bad quantity/);
+  assert.throws(() => g.trade("rations", 0), /whole number/);
+  assert.throws(() => g.trade("rations", Number.NaN), /whole number/);
+  assert.ok(Number.isFinite(g.s.scrip));
+  g.s.pending = { kind: "store", storeId: "wayhouse" };
+  g.s.stock["wayhouse"] = { rations: 60, torches: 20, ammo: 40, medicine: 6, spares: 4, veils: 8, rockets: 4 };
+  g.s.scrip = 100;
+  const one = g.s.res.rations;
+  g.trade("rations", 1);
+  assert.equal(g.s.res.rations - one, 1, "a single unit is not rounded down to nothing");
 });

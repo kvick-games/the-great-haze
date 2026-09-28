@@ -111,7 +111,7 @@ export function buildScene(env: Env, item: Extract<QueueItem, { t: "scene" }>): 
     tells: [],
     looks: 0,
   };
-  env.bind = { actor: item.actor, a: item.a, b: item.b };
+  env.bind = { actor: item.actor, a: item.a, b: item.b, noLeader: def.others };
   if (def.pairWeight && !(inst.a && inst.b)) {
     const pair = pickPair(env, def);
     if (pair) {
@@ -138,7 +138,7 @@ export function buildScene(env: Env, item: Extract<QueueItem, { t: "scene" }>): 
     }
     const observer = bestObserver(s);
     inst.observer = observer?.id;
-    if (inst.tells.length && env.rng.chance(0.75)) revealTells(env, inst, observerBonus(observer) >= 2 ? 2 : 1);
+    if (inst.tells.length && env.rng.chance(0.75)) revealTells(env, inst, observerBonus(observer) >= 1.5 ? 2 : 1);
   }
   return inst;
 }
@@ -255,7 +255,7 @@ export function doLook(env: Env, inst: SceneInstance): void {
   const observer = byId(env.s, inst.observer);
   inst.looks++;
   const hadHidden = inst.tells.some((t) => !t.revealed);
-  const bonus = observerBonus(observer) >= 2 ? 2 : 1;
+  const bonus = observerBonus(observer) >= 1.5 ? 2 : 1;
   const shown = revealTells(env, inst, bonus);
   const who = observer ? firstName(observer) : "Someone";
   if (shown.length) inst.note = `${who} watches for an hour and notices more.`;
