@@ -64,6 +64,11 @@ export class World {
   hemi: THREE.HemisphereLight;
   moon: THREE.DirectionalLight;
   rim: THREE.DirectionalLight;
+  /** A soft light from the camera's side, so the caravan reads in side-on travel shots. */
+  fill: THREE.DirectionalLight;
+  /** Side-on travel cinematography: a fill light, and the verge on the camera side is kept open. */
+  sideOn = false;
+  private fillAmt = 0;
   fog: THREE.FogExp2;
   key: THREE.PointLight;
   keyStrength = 0;
@@ -105,7 +110,8 @@ export class World {
     this.hemi = new THREE.HemisphereLight(0x3a4a5a, 0x120c08, 1);
     this.moon = new THREE.DirectionalLight(0xbfc8d8, 0.8);
     this.rim = new THREE.DirectionalLight(0xff3020, 0.4);
-    this.scene.add(this.hemi, this.moon, this.moon.target, this.rim, this.rim.target);
+    this.fill = new THREE.DirectionalLight(0xe8c2a0, 0);
+    this.scene.add(this.hemi, this.moon, this.moon.target, this.rim, this.rim.target, this.fill, this.fill.target);
     this.key = new THREE.PointLight(0xffc890, 0, 18, 1.3);
     this.scene.add(this.key);
 
@@ -265,6 +271,13 @@ export class World {
     this.rim.position.copy(this.train.center()).add(new THREE.Vector3(0, 30, 120));
     this.rim.target.position.copy(this.train.center());
     this.pool.update(this.rig.focus, this.time);
+    this.fillAmt = damp(this.fillAmt, this.sideOn ? 1 : 0, 1.6, dt);
+    this.scenery.setVerge(this.sideOn ? 34 : 0);
+    this.fill.intensity = this.fillAmt * lerp(1.15, 0.8, this.mood.night);
+    if (this.fillAmt > 0.01) {
+      this.fill.position.copy(this.rig.focus).add(cam.position.clone().sub(this.rig.focus).setY(0).normalize().multiplyScalar(40)).add(new THREE.Vector3(0, 18, 0));
+      this.fill.target.position.copy(this.rig.focus);
+    }
     // Key light: a soft warm lamp between the camera and its subject, at head height.
     const toCam = cam.position.clone().sub(this.rig.focus).setY(0);
     const reach = Math.min(4, toCam.length() * 0.4);

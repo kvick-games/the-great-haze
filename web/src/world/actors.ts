@@ -1,26 +1,23 @@
-// Rigged low-poly actors: people, wagons, oxen. Silhouette first: the concept
-// art reads as dark shapes against a burning sky, so shapes carry identity and
-// colour is a secondary cue. Local forward is +z; yaw = atan2(dx, dz).
+// Rigged low-poly people. Silhouette first: the concept art reads as dark
+// shapes against a burning sky, so shapes carry identity (build, hat, hair,
+// beard, and a prop for each role) and colour is a secondary cue. Local
+// forward is +z; yaw = atan2(dx, dz). The wagons and oxen live in wagon.ts.
 
 import * as THREE from "three";
 import { Flame, blobShadow } from "./fx.ts";
-import { keep } from "./dispose.ts";
 import { damp } from "./noise.ts";
+import { addProp, gball, gbox, gcyl, limb, mat, mesh, put } from "./gear.ts";
+import type { Prop } from "./gear.ts";
 
-const matCache = new Map<string, THREE.MeshStandardMaterial>();
-function mat(hex: number, rough = 0.85): THREE.MeshStandardMaterial {
-  const key = `${hex}:${rough}`;
-  let m = matCache.get(key);
-  if (!m) {
-    m = keep(new THREE.MeshStandardMaterial({ color: hex, roughness: rough, metalness: 0, flatShading: true }));
-    matCache.set(key, m);
-  }
-  return m;
-}
-
-export type Hat = "wide" | "hood" | "cap" | "bonnet" | "bare" | "tall";
+export type { Prop } from "./gear.ts";
+export { Ox, Wagon } from "./wagon.ts";
+export type Hat = "wide" | "hood" | "cap" | "bonnet" | "bare" | "tall" | "furcap";
 export type Build = "normal" | "broad" | "slight" | "child" | "gaunt" | "long";
+export type Age = "child" | "young" | "adult" | "middle" | "old";
+export type HairStyle = "none" | "short" | "long" | "bun" | "braid" | "wild";
+export type BeardStyle = "none" | "stubble" | "short" | "full" | "long" | "goatee" | "mustache";
 
+/** A fully resolved look: everything a Figure needs to be built. */
 export interface Look {
   hat: Hat;
   coat: number;
@@ -30,17 +27,29 @@ export interface Look {
   build: Build;
   longCoat?: boolean;
   hollow?: boolean;
+  age?: Age;
+  hair?: { style: HairStyle; color: number };
+  beard?: { style: BeardStyle; color: number };
+  hatColor?: number;
+  props?: Prop[];
+  /** Stable number that picks small per-person details, such as which limb a wound is on. */
+  seed?: number;
+}
+
+/** What the sim knows about a person's body and mind; drives gait, posture and marks. */
+export interface Condition {
+  health: number;
+  nerve: number;
+  wounded?: boolean;
+  sick?: boolean;
+  /** Fogsick stage, 0..3 */
+  fog?: number;
+  dying?: boolean;
 }
 
 export type Pose = "stand" | "walk" | "sit" | "kneel" | "lie" | "aim" | "cower" | "reach" | "hunch";
 
-function limb(len: number, r: number, m: THREE.Material): THREE.Group {
-  const g = new THREE.Group();
-  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.85, r, len, 5), m);
-  mesh.position.y = -len / 2;
-  g.add(mesh);
-  return g;
-}
+const PALE = new THREE.Color(0xc9c6bc);
 
 export class Figure {
   root = new THREE.Group();
@@ -58,7 +67,13 @@ export class Figure {
   private ringMat: THREE.MeshBasicMaterial;
   private tint: THREE.MeshStandardMaterial[] = [];
   private shadow: THREE.Mesh;
+  private skinMat: THREE.MeshStandardMaterial;
+  private skinBase: THREE.Color;
+  private slots: { rifle?: THREE.Object3D; lantern?: THREE.Object3D; glow: THREE.Mesh[] } = { glow: [] };
+  private wraps: { head: THREE.Object3D; arm: THREE.Object3D; leg: THREE.Object3D[]; chest: THREE.Object3D };
   readonly heightScale: number;
+  readonly seed: number;
+  readonly look: Look;
   pose: Pose = "stand";
   torch: Flame | null = null;
   rifle: THREE.Object3D | null = null;
@@ -73,15 +88,33 @@ export class Figure {
   eyeGlow = 0;
   fade = 1;
   private fadeMats: THREE.Material[] = [];
+  // Body state, derived by setCondition.
+  private limp = 0;
+  private limpSide = 1;
+  private stagger = 0;
+  private hunch = 0;
+  private sickness = 0;
+  private pallor = 0;
+  private stoop = 0;
+  private brisk = 0;
+  private woundSite = 0;
 
   constructor(look: Look) {
+    this.look = look;
+    this.seed = look.seed ?? 0;
     const s =
       look.build === "child" ? 0.72 : look.build === "slight" ? 0.94 : look.build === "broad" ? 1.06 : look.build === "long" ? 2.5 : look.build === "gaunt" ? 1.08 : 1;
-    this.heightScale = s;
-    const wide = look.build === "broad" ? 1.2 : look.build === "gaunt" || look.build === "long" ? 0.78 : 1;
+    const ageScale = look.age === "child" ? 0.96 : look.age === "old" ? 0.97 : 1;
+    this.heightScale = s * ageScale;
+    this.stoop = look.age === "old" ? 0.16 : look.age === "middle" ? 0.05 : 0;
+    this.limpSide = this.seed % 2 === 0 ? 1 : -1;
+    this.woundSite = Math.abs(this.seed >> 1) % 3;
+    const wide = look.build === "broad" ? 1.2 : look.build === "gaunt" || look.build === "long" ? 0.78 : look.build === "slight" ? 0.92 : 1;
     const coat = this.own(mat(look.coat));
     const trousers = this.own(mat(look.trousers));
     const skin = this.own(mat(look.skin, 0.7));
+    this.skinMat = skin;
+    this.skinBase = new THREE.Color(look.skin);
     const accent = this.own(mat(look.accent, 0.8));
     const dark = this.own(mat(0x0b0908));
 
@@ -91,60 +124,93 @@ export class Figure {
     this.legL.position.x = -0.12 * wide;
     this.legR.position.x = 0.12 * wide;
     for (const leg of [this.legL, this.legR]) {
-      const boot = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.12, 0.26), dark);
+      const boot = new THREE.Mesh(gbox(0.14, 0.12, 0.26), dark);
       boot.position.set(0, -0.92, 0.05);
       leg.add(boot);
     }
-    const chest = new THREE.Mesh(new THREE.CylinderGeometry(0.21 * wide, 0.26 * wide, 0.68, 7), coat);
+    const chest = new THREE.Mesh(gcyl(0.21 * wide, 0.26 * wide, 0.68, 7), coat);
     chest.position.y = 0.34;
     this.torso.add(chest);
     if (look.longCoat) {
-      const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.26 * wide, 0.38 * wide, 0.78, 7, 1, true), coat);
+      const skirtMat = coat.clone();
+      skirtMat.side = THREE.DoubleSide;
+      this.tint.push(skirtMat);
+      this.fadeMats.push(skirtMat);
+      const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.26 * wide, 0.38 * wide, 0.78, 7, 1, true), skirtMat);
       skirt.position.y = -0.38;
-      (skirt.material as THREE.Material).side = THREE.DoubleSide;
       this.torso.add(skirt);
     }
-    const scarf = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.19 * wide, 0.12, 7), accent);
+    const scarf = new THREE.Mesh(gcyl(0.13, 0.19 * wide, 0.12, 7), accent);
     scarf.position.y = 0.68;
     this.torso.add(scarf);
     this.head.position.y = 0.72;
-    const skull = new THREE.Mesh(new THREE.SphereGeometry(0.135, 8, 6), skin);
+    const skull = new THREE.Mesh(gball(0.135, 8, 6), skin);
     skull.position.y = 0.14;
     skull.scale.set(1, look.hollow ? 1.18 : 1.08, 1);
     this.head.add(skull);
     this.eyeMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0, 0, 0) });
     for (const x of [-0.05, 0.05]) {
-      const e = new THREE.Mesh(new THREE.SphereGeometry(0.022, 5, 4), this.eyeMat);
+      const e = new THREE.Mesh(gball(0.022, 5, 4), this.eyeMat);
       e.position.set(x, 0.16, 0.12);
       this.eyes.push(e);
       this.head.add(e);
     }
-    this.addHat(look.hat, dark, coat);
+    this.addHat(look, dark, coat);
+    this.addHair(look);
+    this.addBeard(look);
     this.torso.add(this.head);
     this.armL = limb(0.66, 0.065 * wide, coat);
     this.armR = limb(0.66, 0.065 * wide, coat);
     this.armL.position.set(-0.27 * wide, 0.6, 0);
     this.armR.position.set(0.27 * wide, 0.6, 0);
     for (const arm of [this.armL, this.armR]) {
-      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.055, 5, 4), skin);
+      const hand = new THREE.Mesh(gball(0.055, 5, 4), skin);
       hand.position.y = -0.68;
       arm.add(hand);
     }
     this.torso.add(this.armL, this.armR);
     this.hips.add(this.legL, this.legR, this.torso);
     this.body.add(this.hips);
-    this.body.scale.setScalar(s);
+    this.body.scale.setScalar(this.heightScale);
     this.root.add(this.body);
 
-    this.shadow = blobShadow(0.6 * s);
+    // Role props.
+    const rig = { torso: this.torso, armL: this.armL, armR: this.armR, head: this.head, wide, own: (m: THREE.MeshStandardMaterial) => this.own(m), slots: this.slots };
+    for (const p of look.props ?? []) addProp(p, rig);
+
+    // Bandages, hidden until the body needs them.
+    const cloth = this.own(mat(0xd6cfbc, 0.95));
+    const blood = mat(0x6a0c0c, 0.9, 0.3);
+    const wrap = (r: number, h: number, stain = true) => {
+      const g = new THREE.Group();
+      g.add(mesh(gcyl(r, r, h, 7), cloth));
+      if (stain) g.add(put(g, mesh(gbox(0.05, h * 0.5, 0.05), blood), 0, 0, r));
+      g.visible = false;
+      return g;
+    };
+    const headWrap = wrap(0.142, 0.075);
+    put(this.head, headWrap, 0, 0.2, 0, -0.18, 0, 0.12);
+    const armWrap = wrap(0.075 * wide, 0.3);
+    put(this.armL, armWrap, 0, -0.36, 0);
+    const legWraps = [this.legL, this.legR].map((l) => {
+      const g = wrap(0.1 * wide, 0.34);
+      put(l, g, 0, -0.5, 0);
+      return g;
+    });
+    const chestWrap = wrap(0.27 * wide, 0.3);
+    put(this.torso, chestWrap, 0, 0.3, 0);
+    this.wraps = { head: headWrap, arm: armWrap, leg: legWraps, chest: chestWrap };
+
+    this.shadow = blobShadow(0.6 * this.heightScale);
     this.root.add(this.shadow);
     this.ringMat = new THREE.MeshBasicMaterial({ color: 0xffa04d, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
     this.ring = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.68, 28).rotateX(-Math.PI / 2), this.ringMat);
     this.ring.position.y = 0.06;
     this.root.add(this.ring);
+    this.setCondition({ health: 90, nerve: 70 });
   }
 
-  /** Materials are cached per colour; clone them so hit flashes stay per-person. */
+  /** Materials are cached per colour; clone them so hit flashes and fades stay per-person. */
   private own(m: THREE.MeshStandardMaterial): THREE.MeshStandardMaterial {
     const c = m.clone();
     this.tint.push(c);
@@ -152,36 +218,127 @@ export class Figure {
     return c;
   }
 
-  private addHat(hat: Hat, dark: THREE.Material, coat: THREE.Material): void {
-    const add = (geo: THREE.BufferGeometry, m: THREE.Material, y: number, z = 0, rx = 0) => {
-      const mesh = new THREE.Mesh(geo, m);
-      mesh.position.set(0, y, z);
-      mesh.rotation.x = rx;
-      this.head.add(mesh);
+  private addHat(look: Look, dark: THREE.Material, coat: THREE.Material): void {
+    const hat = look.hat;
+    const hm = look.hatColor !== undefined ? this.own(mat(look.hatColor, 0.9)) : dark;
+    const add = (geo: THREE.BufferGeometry, m: THREE.Material, y: number, z = 0, rx = 0, x = 0) => {
+      const me = new THREE.Mesh(geo, m);
+      me.position.set(x, y, z);
+      me.rotation.x = rx;
+      this.head.add(me);
+      return me;
     };
     switch (hat) {
       case "wide":
-        add(new THREE.CylinderGeometry(0.34, 0.34, 0.025, 12), dark, 0.23);
-        add(new THREE.CylinderGeometry(0.13, 0.15, 0.17, 8), dark, 0.32);
+        add(gcyl(0.34, 0.34, 0.025, 12), hm, 0.23);
+        add(gcyl(0.13, 0.15, 0.17, 8), hm, 0.32);
         break;
       case "tall":
-        add(new THREE.CylinderGeometry(0.26, 0.26, 0.02, 10), dark, 0.23);
-        add(new THREE.CylinderGeometry(0.12, 0.13, 0.34, 8), dark, 0.4);
+        add(gcyl(0.26, 0.26, 0.02, 10), hm, 0.23);
+        add(gcyl(0.12, 0.13, 0.34, 8), hm, 0.4);
         break;
       case "hood":
         add(new THREE.SphereGeometry(0.19, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.62), coat, 0.13, -0.02, -0.2);
         add(new THREE.ConeGeometry(0.28, 0.5, 8, 1, true), coat, -0.08, -0.02);
         break;
       case "cap":
-        add(new THREE.SphereGeometry(0.15, 8, 5, 0, Math.PI * 2, 0, Math.PI * 0.5), dark, 0.18);
-        add(new THREE.BoxGeometry(0.2, 0.02, 0.14), dark, 0.19, 0.13);
+        add(new THREE.SphereGeometry(0.15, 8, 5, 0, Math.PI * 2, 0, Math.PI * 0.5), hm, 0.18);
+        add(gbox(0.2, 0.02, 0.14), hm, 0.19, 0.13);
         break;
+      case "furcap": {
+        // A squat fur hat with a tail down the back: reads as a lump against the sky.
+        const fur = this.own(mat(look.hatColor ?? 0x5a4028, 0.98));
+        const dome = add(new THREE.SphereGeometry(0.19, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.62), fur, 0.15, 0, 0);
+        dome.scale.set(1.05, 0.9, 1.12);
+        add(gbox(0.06, 0.16, 0.05), fur, 0.14, 0.02, 0, -0.19);
+        add(gbox(0.06, 0.16, 0.05), fur, 0.14, 0.02, 0, 0.19);
+        const tail = add(gcyl(0.03, 0.045, 0.3, 5), fur, 0.02, -0.2, 0.25);
+        tail.scale.set(1, 1, 1);
+        break;
+      }
       case "bonnet":
-        add(new THREE.SphereGeometry(0.18, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.55), coat, 0.15, -0.04, -0.5);
-        add(new THREE.TorusGeometry(0.16, 0.035, 5, 12, Math.PI), coat, 0.16, 0.06, 0);
+        add(new THREE.SphereGeometry(0.18, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.55), look.hatColor !== undefined ? hm : coat, 0.15, -0.04, -0.5);
+        add(new THREE.TorusGeometry(0.16, 0.035, 5, 12, Math.PI), look.hatColor !== undefined ? hm : coat, 0.16, 0.06, 0);
         break;
       case "bare":
-        add(new THREE.SphereGeometry(0.145, 8, 5, 0, Math.PI * 2, 0, Math.PI * 0.45), dark, 0.16, -0.02, -0.25);
+        // People with an explicit hair description grow their own; the rest keep the old dark scalp.
+        if (!look.hair) add(new THREE.SphereGeometry(0.145, 8, 5, 0, Math.PI * 2, 0, Math.PI * 0.45), dark, 0.16, -0.02, -0.25);
+        break;
+    }
+  }
+
+  private addHair(look: Look): void {
+    const h = look.hair;
+    if (!h || h.style === "none") return;
+    const hm = this.own(mat(h.color, 0.95));
+    const covered = look.hat !== "bare";
+    const covering = look.hat === "hood";
+    if (covering) return;
+    const add = (geo: THREE.BufferGeometry, x: number, y: number, z: number, rx = 0, sx = 1, sy = 1, sz = 1) => {
+      const me = new THREE.Mesh(geo, hm);
+      me.position.set(x, y, z);
+      me.rotation.x = rx;
+      me.scale.set(sx, sy, sz);
+      this.head.add(me);
+    };
+    const cap = () => add(new THREE.SphereGeometry(0.146, 8, 5, 0, Math.PI * 2, 0, Math.PI * 0.5), 0, 0.155, -0.012, -0.22);
+    switch (h.style) {
+      case "short":
+        if (!covered) cap();
+        break;
+      case "wild":
+        if (!covered) add(new THREE.IcosahedronGeometry(0.19, 0), 0, 0.2, -0.02, 0, 1, 0.9, 1);
+        else add(gbox(0.3, 0.16, 0.12), 0, 0.08, -0.08);
+        break;
+      case "long":
+        if (!covered) cap();
+        add(gbox(0.27, 0.42, 0.09), 0, -0.02, -0.11);
+        add(gbox(0.04, 0.3, 0.07), -0.135, 0.02, -0.02);
+        add(gbox(0.04, 0.3, 0.07), 0.135, 0.02, -0.02);
+        break;
+      case "bun":
+        if (!covered) cap();
+        add(gball(0.075, 6, 5), 0, 0.23, -0.12);
+        break;
+      case "braid":
+        if (!covered) cap();
+        add(gcyl(0.035, 0.028, 0.5, 5), 0, -0.14, -0.15);
+        add(gbox(0.06, 0.03, 0.06), 0, -0.36, -0.15);
+        break;
+    }
+  }
+
+  private addBeard(look: Look): void {
+    const b = look.beard;
+    if (!b || b.style === "none" || look.hollow) return;
+    const bm = this.own(mat(b.color, 0.98));
+    const add = (geo: THREE.BufferGeometry, x: number, y: number, z: number, rx = 0, sx = 1, sy = 1, sz = 1) => {
+      const me = new THREE.Mesh(geo, bm);
+      me.position.set(x, y, z);
+      me.rotation.x = rx;
+      me.scale.set(sx, sy, sz);
+      this.head.add(me);
+    };
+    switch (b.style) {
+      case "stubble":
+        add(new THREE.SphereGeometry(0.139, 8, 4, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.42), 0, 0.14, 0, 0, 1, 1.08, 1);
+        break;
+      case "short":
+        add(gball(0.115, 7, 5), 0, 0.045, 0.045, 0, 1, 0.9, 1);
+        break;
+      case "full":
+        add(gball(0.13, 7, 5), 0, 0.02, 0.05, 0, 1, 1.1, 1);
+        add(gbox(0.14, 0.04, 0.05), 0, 0.09, 0.125);
+        break;
+      case "long":
+        add(gball(0.13, 7, 5), 0, 0.02, 0.05, 0, 1, 1.1, 1);
+        add(new THREE.ConeGeometry(0.115, 0.42, 6), 0, -0.19, 0.06, Math.PI);
+        break;
+      case "goatee":
+        add(new THREE.ConeGeometry(0.05, 0.16, 5), 0, -0.03, 0.11, Math.PI);
+        break;
+      case "mustache":
+        add(gbox(0.15, 0.03, 0.05), 0, 0.09, 0.125);
         break;
     }
   }
@@ -192,9 +349,10 @@ export class Figure {
     if (this.holder) this.armR.remove(this.holder);
     this.holder = null;
     this.torch = flame;
+    if (this.slots.lantern) this.slots.lantern.visible = !flame;
     if (!flame) return;
     const holder = new THREE.Group();
-    const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.035, 0.9, 5), mat(0x2a1a10));
+    const stick = new THREE.Mesh(gcyl(0.025, 0.035, 0.9, 5), mat(0x2a1a10));
     stick.position.y = 0.2;
     holder.add(stick);
     flame.group.position.y = 0.66;
@@ -205,8 +363,12 @@ export class Figure {
   }
 
   holdRifle(on: boolean): void {
+    // A hunter's rifle rides on the back until it is needed.
+    if (this.slots.rifle) {
+      this.slots.rifle.visible = !on;
+    }
     if (on && !this.rifle) {
-      const r = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 1.1), mat(0x1a1410));
+      const r = new THREE.Mesh(gbox(0.05, 0.05, 1.1), mat(0x1a1410));
       r.position.set(0, -0.6, 0.35);
       this.rifle = r;
       this.armR.add(r);
@@ -225,6 +387,26 @@ export class Figure {
     this.hurtFlash = 1;
   }
 
+  /** Read the body and mind off the sim: gait, posture, bandages and pallor follow. */
+  setCondition(c: Condition): void {
+    const hp = Math.max(0, Math.min(100, c.health));
+    const nerve = Math.max(0, Math.min(100, c.nerve));
+    const site = this.woundSite;
+    const wounded = !!c.wounded || !!c.dying;
+    this.limp = Math.min(1, (wounded && (site === 2 || c.dying) ? 0.85 : wounded ? 0.3 : 0) + Math.max(0, (55 - hp) / 55) * 0.7);
+    this.stagger = Math.max(0, (32 - hp) / 32) * 0.9 + (nerve < 12 ? 0.25 : 0);
+    this.sickness = c.sick ? 1 : 0;
+    this.hunch = Math.min(1, (c.sick ? 0.55 : 0) + (nerve < 25 ? 0.85 : nerve < 45 ? 0.45 : 0) + (1 - hp / 100) * 0.55 + (c.fog ?? 0) * 0.12);
+    this.brisk = hp > 70 && nerve > 60 ? 1 : 0;
+    this.pallor = Math.min(0.85, (c.sick ? 0.4 : 0) + (c.fog ?? 0) * 0.28 + Math.max(0, (60 - hp) / 60) * 0.5 + (c.dying ? 0.3 : 0));
+    this.skinMat.color.copy(this.skinBase).lerp(PALE, this.pallor);
+    this.wraps.head.visible = wounded && (site === 0 || !!c.dying);
+    this.wraps.arm.visible = wounded && (site === 1 || !!c.dying);
+    this.wraps.leg[0].visible = wounded && (site === 2 || !!c.dying) && this.limpSide > 0;
+    this.wraps.leg[1].visible = wounded && (site === 2 || !!c.dying) && this.limpSide < 0;
+    this.wraps.chest.visible = !!c.dying;
+  }
+
   setFade(v: number): void {
     this.fade = v;
     const t = v < 0.999;
@@ -232,6 +414,7 @@ export class Figure {
       m.transparent = t;
       m.opacity = v;
     }
+    for (const g of this.slots.glow) g.visible = v > 0.5;
     this.shadow.visible = v > 0.3;
   }
 
@@ -243,54 +426,61 @@ export class Figure {
     this.yaw = this.yaw + wrapAngle(this.targetYaw - this.yaw) * (1 - Math.exp(-8 * dt));
     this.root.rotation.y = this.yaw;
     const walking = this.pose === "walk" || (this.speed > 0.2 && this.pose !== "lie" && this.pose !== "sit");
-    if (walking) this.phase += dt * Math.max(this.speed, 0.8) * 3.2 / this.heightScale;
+    const hurtGait = 1 - this.limp * 0.3 - this.stagger * 0.25;
+    if (walking) this.phase += (dt * Math.max(this.speed, 0.8) * 3.2 * hurtGait) / this.heightScale;
     const swing = walking ? Math.sin(this.phase) : 0;
-    const amt = walking ? Math.min(1, 0.35 + this.speed * 0.25) : 0;
+    const amt = walking ? Math.min(1, 0.35 + this.speed * 0.25) * (1 - this.hunch * 0.25) : 0;
 
+    // A limp shortens the stride on the bad leg and drops the body onto it.
+    const badL = this.limpSide > 0 ? 0 : 1;
+    const legScaleL = badL ? 1 - this.limp * 0.6 : 1 + this.limp * 0.12;
+    const legScaleR = badL ? 1 + this.limp * 0.12 : 1 - this.limp * 0.6;
     let hipsY = 0.95;
-    let lean = 0;
-    let legL = swing * 0.55 * amt;
-    let legR = -swing * 0.55 * amt;
-    let armL = -swing * 0.45 * amt;
-    let armR = swing * 0.45 * amt;
-    let armLz = 0.08;
-    let armRz = -0.08;
-    let headX = 0;
+    let lean = this.stoop - this.brisk * 0.03 + this.hunch * 0.42;
+    let legL = swing * 0.55 * amt * legScaleL;
+    let legR = -swing * 0.55 * amt * legScaleR;
+    const armAmt = 1 - this.hunch * 0.5;
+    let armL = -swing * 0.45 * amt * armAmt;
+    let armR = swing * 0.45 * amt * armAmt;
+    let armLz = 0.08 - this.hunch * 0.05;
+    let armRz = -0.08 + this.hunch * 0.05;
+    let headX = this.hunch * 0.5 - this.brisk * 0.03;
+    let roll = 0;
     switch (this.pose) {
       case "sit":
         hipsY = 0.5;
         legL = legR = -1.45;
         armL = armR = -0.5;
-        lean = 0.1;
+        lean += 0.1;
         break;
       case "kneel":
         hipsY = 0.62;
         legL = -1.4;
         legR = 0.2;
-        lean = 0.25;
+        lean += 0.25;
         armL = armR = -0.3;
         break;
       case "aim":
         armR = -1.5;
         armL = -1.35;
         armLz = 0.45;
-        lean = 0.08;
+        lean += 0.08;
         break;
       case "cower":
         hipsY = 0.75;
-        lean = 0.5;
+        lean += 0.5;
         armL = armR = -2.3;
         armLz = 0.5;
         armRz = -0.5;
-        headX = 0.3;
+        headX += 0.3;
         break;
       case "reach":
         armL = armR = -1.2;
-        lean = 0.15;
+        lean += 0.15;
         break;
       case "hunch":
-        lean = 0.35;
-        headX = 0.35;
+        lean += 0.35;
+        headX += 0.35;
         armL = armR = 0.1;
         break;
       default:
@@ -304,8 +494,28 @@ export class Figure {
       // Breathing.
       lean += Math.sin(time * 1.3 + this.phase) * 0.015;
     }
+    if (this.pose !== "lie") {
+      if (walking && this.limp > 0.02) {
+        // Weight comes down on the bad leg: the hips drop and the shoulders roll toward it.
+        const planted = Math.max(0, Math.sin(this.phase + (badL ? Math.PI : 0)));
+        hipsY -= this.limp * 0.07 * planted;
+        roll += this.limpSide * -this.limp * 0.13 * (planted - 0.35);
+      }
+      if (this.stagger > 0.02) {
+        roll += (Math.sin(time * 1.7 + this.seed) + Math.sin(time * 2.9 + this.seed * 2) * 0.6) * 0.09 * this.stagger;
+        lean += Math.max(0, Math.sin(time * 0.8 + this.seed)) * 0.12 * this.stagger;
+        headX += Math.sin(time * 1.1 + this.seed) * 0.12 * this.stagger;
+        hipsY -= 0.04 * this.stagger;
+      }
+      if (this.sickness > 0) {
+        // A cough now and then doubles them over.
+        const c = Math.pow(Math.max(0, Math.sin(time * 0.65 + this.seed * 1.7)), 14);
+        lean += c * 0.35 + Math.sin(time * 34) * c * 0.03;
+        headX += c * 0.25;
+      }
+    }
     const k = 1 - Math.exp(-10 * dt);
-    this.hips.position.y += (hipsY + (walking ? Math.abs(Math.cos(this.phase)) * 0.04 : 0) - this.hips.position.y) * k;
+    this.hips.position.y += (hipsY + (walking ? Math.abs(Math.cos(this.phase)) * 0.04 * (1 - this.limp * 0.5) : 0) - this.hips.position.y) * k;
     this.legL.rotation.x += (legL - this.legL.rotation.x) * k;
     this.legR.rotation.x += (legR - this.legR.rotation.x) * k;
     this.armL.rotation.x += (armL - this.armL.rotation.x) * k;
@@ -313,6 +523,7 @@ export class Figure {
     this.armL.rotation.z += (armLz - this.armL.rotation.z) * k;
     this.armR.rotation.z += (armRz - this.armR.rotation.z) * k;
     this.torso.rotation.x += (lean - this.torso.rotation.x) * k;
+    this.torso.rotation.z += (roll - this.torso.rotation.z) * k;
     // Keep a held torch upright whatever the arm is doing.
     if (this.holder) this.holder.rotation.x = -this.armR.rotation.x - this.torso.rotation.x - 0.12;
     this.head.rotation.x += (headX - this.head.rotation.x) * k;
@@ -325,6 +536,8 @@ export class Figure {
     this.hurtFlash = Math.max(0, this.hurtFlash - dt * 2.5);
     for (const m of this.tint) m.emissive.setRGB(this.hurtFlash * 0.9, 0, 0);
     this.eyeMat.color.setRGB(this.eyeGlow * 3, this.eyeGlow * 0.25, this.eyeGlow * 0.15);
+    const es = 1 + this.eyeGlow * 1.6;
+    for (const e of this.eyes) e.scale.setScalar(es);
 
     const ringTarget = this.ringKind === "none" ? 0 : this.ringKind === "dying" ? 0.45 + 0.35 * Math.sin(time * 5) : 0.8;
     this.ringMat.opacity = damp(this.ringMat.opacity, ringTarget * this.fade, 8, dt);
@@ -337,168 +550,3 @@ export function wrapAngle(a: number): number {
   return a;
 }
 
-// ---------------------------------------------------------------------------
-// Wagon
-// ---------------------------------------------------------------------------
-
-export class Wagon {
-  root = new THREE.Group();
-  private tilt = new THREE.Group();
-  wheels: { g: THREE.Group; r: number }[] = [];
-  torches: Flame[] = [];
-  canvasMat: THREE.MeshStandardMaterial;
-  lantern = 0;
-  private wobbleSeed = Math.random() * 10;
-  condition = 1;
-
-  constructor() {
-    const wood = mat(0x2c1d12);
-    const darkWood = mat(0x1a120c);
-    const iron = mat(0x141414, 0.6);
-    this.canvasMat = new THREE.MeshStandardMaterial({ color: 0x9a9286, roughness: 0.95, flatShading: true, side: THREE.DoubleSide });
-    const add = (m: THREE.Mesh, x: number, y: number, z: number) => {
-      m.position.set(x, y, z);
-      this.tilt.add(m);
-      return m;
-    };
-    add(new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.16, 4.2), wood), 0, 0.95, 0);
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.5, 4.2), darkWood), -0.85, 1.25, 0);
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.5, 4.2), darkWood), 0.85, 1.25, 0);
-    add(new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.5, 0.08), darkWood), 0, 1.25, -2.1);
-    add(new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.08, 0.5), wood), 0, 1.55, 2.25);
-    // Canvas bonnet: the top half of a cylinder along z, with hoops.
-    const cover = new THREE.CylinderGeometry(1.02, 1.02, 3.9, 12, 1, true, Math.PI / 2, Math.PI);
-    cover.rotateX(Math.PI / 2);
-    const canvas = new THREE.Mesh(cover, this.canvasMat);
-    canvas.scale.set(0.9, 1.1, 1);
-    add(canvas, 0, 1.45, -0.05);
-    for (const z of [-1.9, -0.65, 0.65, 1.9]) {
-      const hoop = new THREE.Mesh(new THREE.TorusGeometry(0.93, 0.035, 4, 12, Math.PI), darkWood);
-      hoop.scale.set(1, 1.12, 1);
-      add(hoop, 0, 1.45, z);
-    }
-    // Tongue and yoke reaching toward the oxen.
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 3.2), darkWood), 0, 0.72, 3.5);
-    for (const [z, r, x] of [
-      [1.35, 0.52, 0.92],
-      [-1.35, 0.66, 0.92],
-    ] as const) {
-      for (const side of [-1, 1]) {
-        const g = new THREE.Group();
-        g.position.set(side * x, r, z);
-        const rim = new THREE.Mesh(new THREE.TorusGeometry(r, 0.045, 5, 16), iron);
-        rim.rotation.y = Math.PI / 2;
-        g.add(rim);
-        for (let i = 0; i < 4; i++) {
-          const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.04, r * 2, 0.04), wood);
-          spoke.rotation.x = (i * Math.PI) / 4;
-          g.add(spoke);
-        }
-        const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.16, 6), iron);
-        hub.rotation.z = Math.PI / 2;
-        g.add(hub);
-        this.tilt.add(g);
-        this.wheels.push({ g, r });
-      }
-    }
-    // Torch poles at the front corners, like the concept art.
-    for (const side of [-1, 1]) {
-      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 1.6, 5), darkWood);
-      pole.position.set(side * 0.95, 1.9, 2.05);
-      pole.rotation.z = -side * 0.12;
-      this.tilt.add(pole);
-      const f = new Flame(0.55, 0.8);
-      f.group.position.set(side * 1.05, 2.75, 2.05);
-      this.tilt.add(f.group);
-      this.torches.push(f);
-    }
-    this.root.add(this.tilt);
-    const sh = blobShadow(2.4);
-    sh.scale.set(0.9, 1, 1.5);
-    this.root.add(sh);
-  }
-
-  roll(distance: number): void {
-    for (const w of this.wheels) w.g.rotation.x = distance / w.r;
-  }
-
-  update(dt: number, time: number, moving: number): void {
-    const bad = 1 - this.condition;
-    const wob = (0.01 + bad * 0.05) * moving;
-    this.tilt.rotation.z = Math.sin(time * 3.1 + this.wobbleSeed) * wob + bad * 0.04;
-    this.tilt.rotation.x = Math.sin(time * 2.3 + this.wobbleSeed) * wob * 0.5;
-    this.tilt.position.y = Math.abs(Math.sin(time * 6 + this.wobbleSeed)) * 0.03 * moving;
-    this.canvasMat.emissive.setRGB(0.22 * this.lantern, 0.1 * this.lantern, 0.03 * this.lantern);
-    for (const t of this.torches) t.update(time);
-    void dt;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Ox
-// ---------------------------------------------------------------------------
-
-export class Ox {
-  root = new THREE.Group();
-  private legs: THREE.Group[] = [];
-  private head = new THREE.Group();
-  phase = Math.random() * 10;
-  lookBack = 0;
-
-  constructor() {
-    const hide = mat(0x1c140f);
-    const horn = mat(0x8a8070, 0.6);
-    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.46, 1.25, 3, 8), hide);
-    body.rotation.x = Math.PI / 2;
-    body.scale.set(1, 1, 1.08);
-    body.position.y = 1.12;
-    this.root.add(body);
-    const hump = new THREE.Mesh(new THREE.SphereGeometry(0.42, 7, 5), hide);
-    hump.scale.set(0.9, 0.75, 1.1);
-    hump.position.set(0, 1.46, 0.55);
-    this.root.add(hump);
-    this.head.position.set(0, 1.18, 1.08);
-    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.32, 0.55, 6), hide);
-    neck.rotation.x = 1.1;
-    neck.position.set(0, -0.05, 0.12);
-    this.head.add(neck);
-    const skull = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.38, 0.62), hide);
-    skull.position.set(0, -0.22, 0.42);
-    skull.rotation.x = 0.7;
-    this.head.add(skull);
-    const muzzle = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.24, 0.2), mat(0x2a211b));
-    muzzle.position.set(0, -0.45, 0.66);
-    muzzle.rotation.x = 0.7;
-    this.head.add(muzzle);
-    for (const side of [-1, 1]) {
-      const h = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.45, 4), horn);
-      h.position.set(side * 0.3, 0.2, 0.05);
-      h.rotation.z = -side * 1.1;
-      this.head.add(h);
-    }
-    this.root.add(this.head);
-    for (const [x, z] of [
-      [-0.3, 0.7],
-      [0.3, 0.7],
-      [-0.3, -0.7],
-      [0.3, -0.7],
-    ]) {
-      const leg = limb(0.78, 0.075, hide);
-      leg.position.set(x, 0.72, z);
-      this.legs.push(leg);
-      this.root.add(leg);
-    }
-    const sh = blobShadow(1.2);
-    sh.scale.set(0.8, 1, 1.4);
-    this.root.add(sh);
-  }
-
-  update(dt: number, time: number, moving: number): void {
-    this.phase += dt * moving * 4.2;
-    this.legs.forEach((l, i) => {
-      l.rotation.x = Math.sin(this.phase + (i === 0 || i === 3 ? 0 : Math.PI)) * 0.4 * Math.min(1, moving);
-    });
-    this.head.rotation.y = damp(this.head.rotation.y, this.lookBack * 1.2, 3, dt);
-    this.head.rotation.x = Math.sin(time * 0.7 + this.phase) * 0.05;
-  }
-}

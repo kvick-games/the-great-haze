@@ -21,9 +21,14 @@ await page.route(/https:\/\/cdn\.jsdelivr\.net\/npm\/three@[^/]+\/(.*)/, (route)
   route.fulfill({ status: 200, contentType: "application/javascript", body: readFileSync(join(root, "node_modules/three", rel)) });
 });
 await page.route(/fonts\.(googleapis|gstatic)\.com/, (route) => route.fulfill({ status: 200, contentType: "text/css", body: "" }));
-await page.goto("file://" + join(root, "dist/the-great-haze.html") + "#fast");
+// VIEW / U / WAGON / CARAVAN are handed to the setup script; NOFAST=1 plays cinematics at real speed.
+await page.goto("file://" + join(root, "dist/the-great-haze.html") + (process.env.NOFAST ? "" : "#fast"));
 await page.waitForFunction(() => window.__haze?.booted === true, null, { timeout: 30000 });
-if (setup) await page.evaluate(setup);
+if (setup) {
+  const args = { view: process.env.VIEW, u: process.env.U, wagon: process.env.WAGON, caravan: process.env.CARAVAN };
+  await page.evaluate((a) => Object.assign(window, { __view: a.view, __u: a.u, __wagon: a.wagon, __caravan: a.caravan }), args);
+  await page.evaluate(setup);
+}
 await page.waitForTimeout(Number(wait));
 await page.screenshot({ path: out });
 console.log(errors.length ? errors.join("\n") : "no errors");

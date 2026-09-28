@@ -40,6 +40,8 @@ const SPECS: KindSpec[] = [
   { kind: "ruin", slots: 1, near: 22, far: 90, scale: [0.9, 1.2] },
 ];
 
+const TALL = new Set<PropKind>(["pine", "birch", "deadtree", "deadtree2", "boulder", "ruin", "crystal", "scarecrow"]);
+
 export interface Clearing {
   x: number;
   z: number;
@@ -53,6 +55,7 @@ export class Scenery {
   private clearings: Clearing[] = [];
   private dirty = true;
   private density: number;
+  private verge = 0;
 
   constructor(quality: number) {
     this.density = quality > 0.5 ? 1 : 0.55;
@@ -83,6 +86,13 @@ export class Scenery {
     for (const c of this.clearings) if ((x - c.x) ** 2 + (z - c.z) ** 2 < c.r * c.r) return true;
     for (const c of CLEARINGS) if (c.w > 0 && (x - c.x) ** 2 + (z - c.y) ** 2 < (c.z + 8) ** 2) return true;
     return false;
+  }
+
+  /** Keep tall scenery off the right-hand verge out to this distance from the road (0 = off), for side-on shots. */
+  setVerge(v: number): void {
+    if (v === this.verge) return;
+    this.verge = v;
+    this.dirty = true;
   }
 
   /** Call after changing CLEARINGS so props are re-placed. */
@@ -118,6 +128,7 @@ export class Scenery {
             const off = spec.near + (spec.far - spec.near) * t * t;
             const x = roadX(z) + side * off;
             if (this.cleared(x, z)) continue;
+            if (this.verge > 0 && side > 0 && off < this.verge && TALL.has(spec.kind)) continue;
             const y = terrainHeight(x, z);
             const s0 = spec.scale[0] + (spec.scale[1] - spec.scale[0]) * hash2(c, k + 37);
             let ry = hash2(c, k + 51) * Math.PI * 2;
