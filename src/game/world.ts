@@ -209,6 +209,8 @@ export const STORES: Record<string, StoreDef> = {
     markup: 1.35,
     stock: { rations: 60, torches: 20, ammo: 40, medicine: 6, spares: 4, veils: 8, rockets: 4 },
     buyback: 0.35,
+    rigged: 0.8,
+    tell: "Mr. Halloran weighs every sack himself, one thumb resting lightly on the pan.",
   },
   "last-lamp": {
     id: "last-lamp",

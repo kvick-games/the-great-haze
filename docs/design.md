@@ -123,7 +123,8 @@ dumped). Enemies scale with distance travelled. Humans can break and flee; the H
 
 ## Landmarks
 
-Ninefold Bridge (crossing), Meridian Wayhouse (store), the Fork at Glass Cross (fast, dangerous rail line or a
+Ninefold Bridge (crossing), Meridian Wayhouse (a store whose factor short-weights rations and physic by a fifth
+unless you spend an hour checking the scales; there is a fair tell if you read the shop text), the Fork at Glass Cross (fast, dangerous rail line or a
 slow safe pilgrim road), Mission of Saint Ambrose (refuge, or something worse), the Toll Gate (extortion, or a
 real toll), Last Lamp (store, brutal prices), and **the Gate of the Blue Reach**. Stopping to shop costs hours.
 

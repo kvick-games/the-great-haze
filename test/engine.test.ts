@@ -295,3 +295,32 @@ test("resolving an option applies its cost, its time, and a truth-dependent outc
   resolveOption(eh, trap, "physic");
   assert.ok(h.s.queue.some((q) => q.t === "combat"), "a trap sends something at you");
 });
+
+test("a crooked keeper short-weights you until you check the scales", () => {
+  const rigged = underway(9);
+  rigged.s.scrip = 200;
+  rigged.s.pending = { kind: "store", storeId: "wayhouse" };
+  rigged.s.stock["wayhouse"] = { rations: 60, torches: 20, ammo: 40, medicine: 6, spares: 4, veils: 8, rockets: 4 };
+  const screen = rigged.screen();
+  assert.ok(screen.lines.some((l) => /thumb/.test(l)), "there is a fair-play tell");
+  assert.ok(screen.options.some((o) => o.id === "inspect" && o.hours === 1));
+  const before = rigged.s.res.rations;
+  rigged.trade("rations", 20);
+  assert.equal(rigged.s.res.rations - before, 16, "20 paid for, 16 delivered");
+
+  const honest = underway(9);
+  honest.s.scrip = 200;
+  honest.s.pending = { kind: "store", storeId: "wayhouse" };
+  honest.s.stock["wayhouse"] = { rations: 60, torches: 20, ammo: 40, medicine: 6, spares: 4, veils: 8, rockets: 4 };
+  const carry = honest.s.carryHours;
+  honest.choose("inspect");
+  assert.equal(honest.s.carryHours, carry + 1, "checking costs an hour");
+  assert.ok(!honest.screen().options.some((o) => o.id === "inspect"), "the check is a one-time thing");
+  const held = honest.s.res.rations;
+  honest.trade("rations", 20);
+  assert.equal(honest.s.res.rations - held, 20, "after the check, honest weight");
+  // Torches were never rigged.
+  const torches = honest.s.res.torches;
+  rigged.trade("torches", 5);
+  assert.equal(rigged.s.res.torches - torches, 5);
+});

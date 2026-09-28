@@ -308,24 +308,37 @@ export class Game {
         const def = STORES[p.storeId];
         const opts: ScreenOption[] = [];
         const starving = p.storeId === "cinder-ford" && s.res.rations < living(s).length;
+        const inspected = (s.flags[`inspected:${p.storeId}`] ?? 0) > 0;
+        if (def.rigged && !inspected) {
+          opts.push({
+            id: "inspect",
+            label: "Check the scales",
+            hint: "Something about how he weighs bothers you. Takes an hour, and he will not enjoy it.",
+            hours: 1,
+          });
+        }
         opts.push({
           id: "depart",
           label: p.storeId === "cinder-ford" ? "Hitch the oxen and leave Cinder Ford" : "Leave the store",
           disabled: starving ? "You cannot set out with nothing to eat." : undefined,
         });
+        const lines = [
+          `${def.keeper} leans on the counter and does not pretend to be sorry about the prices.`,
+          p.storeId === "cinder-ford"
+            ? "Everything you carry will have to last 840 miles. It will not. Buy what you cannot live without and hope the road provides the rest."
+            : "Anything you sell back is worth a fraction of what you paid. Anything you buy is worth more than the shelf says.",
+          `Your wagons hold ${cargoCap(s)} units. You have ${s.scrip} scrip.`,
+        ];
+        if (def.tell && !inspected) lines.push(def.tell);
         return {
           kind: "store",
           title: def.name,
-          lines: [
-            `${def.keeper} leans on the counter and does not pretend to be sorry about the prices.`,
-            p.storeId === "cinder-ford"
-              ? "Everything you carry will have to last 840 miles. It will not. Buy what you cannot live without and hope the road provides the rest."
-              : "Anything you sell back is worth a fraction of what you paid. Anything you buy is worth more than the shelf says.",
-            `Your wagons hold ${cargoCap(s)} units. You have ${s.scrip} scrip.`,
-          ],
+          lines,
           options: opts,
           store: this.storeView(p.storeId),
-          ...base,
+          hud,
+          observations: [],
+          notes: p.notes ?? [],
         };
       }
       case "arrival": {
@@ -540,6 +553,16 @@ export class Game {
         break;
       }
       case "store": {
+        if (id === "inspect") {
+          s.flags[`inspected:${p.storeId}`] = 1;
+          s.carryHours = Math.min(TUNING.maxCarryHours, s.carryHours + 1);
+          s.stats.hoursLost += 1;
+          p.notes = [
+            "Time: 1h",
+            "Under the felt on the pan there is a lead slug the size of a thumb. Halloran shrugs. \"Calibration.\" He takes it out, and you watch every sack after that.",
+          ];
+          break;
+        }
         const then = p.then;
         if (p.storeId === "cinder-ford") {
           s.day = 0;
@@ -603,8 +626,9 @@ export class Game {
         if (byRoom <= 0) return "There is no room left in the wagons.";
         return "You cannot afford that.";
       }
+      const crooked = def.rigged && !(s.flags[`inspected:${storeId}`] ?? 0) && (item === "rations" || item === "medicine");
       s.scrip -= n * line.price;
-      s.res[item] += n;
+      s.res[item] += crooked ? Math.floor(n * (def.rigged as number)) : n;
       stock[item] = (stock[item] ?? 0) - n;
       return `Bought ${n} ${line.name.toLowerCase()} for ${n * line.price} scrip.`;
     }

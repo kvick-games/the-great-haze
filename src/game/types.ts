@@ -229,7 +229,7 @@ export type QueueItem =
 
 export type Pending =
   | { kind: "setup"; offered: string[]; picked: string[] }
-  | { kind: "store"; storeId: string; then?: string }
+  | { kind: "store"; storeId: string; then?: string; notes?: string[] }
   | { kind: "arrival"; id: string }
   | { kind: "plan"; notes?: string[] }
   | { kind: "scene"; scene: SceneInstance }

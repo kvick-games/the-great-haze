@@ -204,4 +204,8 @@ export interface StoreDef {
   stock: Record<ResourceId, number>;
   /** Fraction of price paid when the train sells goods back. */
   buyback: number;
+  /** A crooked keeper delivers only this fraction of rations and physic until the scales are checked. */
+  rigged?: number;
+  /** The fair-play hint that something is off. */
+  tell?: string;
 }

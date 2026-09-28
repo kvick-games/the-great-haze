@@ -79,6 +79,7 @@ export function shop(game: Game, strategy: Strategy, first: boolean): void {
   }
   // Later stores: keep a small purse, spend the rest on food, then torches.
   const keep = strategy === "cautious" ? 20 : 0;
+  if (strategy === "cautious" && game.screen().options.some((o) => o.id === "inspect")) game.choose("inspect");
   const store = game.screen().store!;
   const price = (id: ResourceId) => store.lines.find((l) => l.id === id)!.price;
   const spend = (id: ResourceId, share: number) => {
