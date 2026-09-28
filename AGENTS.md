@@ -9,4 +9,4 @@ This is a Dream Engine game project. The working title is provisional.
 - Keep runtime dependencies in the shared engine checkout; do not copy the engine into this repository.
 - Make meaningful local Git checkpoint commits. The authorized origin is https://github.com/kvick-games/the-great-haze.git.
 - Use DT_Backup for backup operations. New project backup selection is opt-in.
-- No build or gameplay tests exist at this setup stage. Validate manifests and referenced paths; add appropriate runtime checks when implementation begins.
+- The simulation core in `src/game/` has tests: run `npm test`, `npm run typecheck`, and `npm run validate` (manifests and referenced paths) before committing. Read `docs/design.md` for the systems and `docs/game-brief.md` for the original request. Keep `src/game/` free of engine, rendering, and Node imports.
