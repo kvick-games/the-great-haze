@@ -379,6 +379,26 @@ export class UI {
     return box;
   }
 
+  /** Spoken lines as a plain transcript: speaker name and words. The 3D staging comes later. */
+  private talk(s: Screen): HTMLElement | null {
+    if (!s.talk.length && !s.check) return null;
+    const box = h("div", "talk");
+    for (const l of s.talk) {
+      const p = h("p", `${l.kind} ${l.mood}`);
+      add(p, h("span", "who", l.name), document.createTextNode(l.text));
+      box.appendChild(p);
+    }
+    if (s.check) {
+      const c = s.check;
+      const sign = c.bonus >= 0 ? "+" : "−";
+      const r = h("div", `roll${c.success ? "" : " fail"}`);
+      add(r, document.createTextNode(`${c.byName} · ${c.kind} · rolled ${c.roll} ${sign} ${Math.abs(c.bonus)} against ${c.dc}: `), h("b", "", c.success ? "success" : "failure"));
+      r.title = c.reason;
+      box.appendChild(r);
+    }
+    return box;
+  }
+
   private notes(notes: string[]): HTMLElement | null {
     if (!notes.length) return null;
     const box = h("div", "ledger");
@@ -461,6 +481,8 @@ export class UI {
       }
       case "plan": {
         add(c, this.lines(s.lines));
+        const talk = this.talk(s);
+        if (talk) c.appendChild(talk);
         const n = this.notes(s.notes);
         if (n) c.appendChild(n);
         const seg = (label: string, defs: Record<string, { name: string; blurb: string }>, current: string, prefix: string, sub: (id: string) => string) => {
@@ -516,6 +538,8 @@ export class UI {
       }
       default: {
         add(c, this.lines(s.lines));
+        const talk = this.talk(s);
+        if (talk) c.appendChild(talk);
         if (s.observations.length) {
           const box = h("div", "notice");
           add(box, h("div", "lab", "You notice"));

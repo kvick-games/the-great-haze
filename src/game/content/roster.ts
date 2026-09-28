@@ -1,3 +1,4 @@
+import { NPCS } from "./npcs.ts";
 import type { Role, Trait } from "../types.ts";
 
 export interface MemberTemplate {
@@ -156,79 +157,14 @@ export const ROSTER: MemberTemplate[] = [
   },
 ];
 
-/** Strangers who can join the train if you help them. Never offered twice. */
-export const RECRUITS: MemberTemplate[] = [
-  {
-    id: "mattie",
-    name: "Mattie Voss",
-    role: "medic",
-    traits: ["kind", "coward"],
-    bio: "A country doctor's daughter, pulled from under a fallen roof beam.",
-    maxHealth: 70,
-  },
-  {
-    id: "juniper",
-    name: "Juniper Cole",
-    role: "scout",
-    traits: ["charming", "haunted"],
-    bio: "Eleven years old and unnervingly good at knowing when to be quiet.",
-    maxHealth: 55,
-    nerve: 45,
-  },
-  {
-    id: "thaddeus",
-    name: "Thaddeus Moreau",
-    role: "guard",
-    traits: ["stoic", "pious"],
-    bio: "A deserter from the Company guard, and honest about it.",
-  },
-  {
-    id: "birdie",
-    name: "Birdie Nkemelu",
-    role: "mechanic",
-    traits: ["kind", "sickly"],
-    bio: "A tinker with a mule and a limp. The mule is dead. The limp remains.",
-    generic: true,
-    maxHealth: 75,
-  },
-  {
-    id: "ambrose",
-    name: "Brother Ambrose",
-    role: "speaker",
-    traits: ["pious", "stoic"],
-    bio: "The only monk from the mission who could still speak in full sentences.",
-  },
-  {
-    id: "rue",
-    name: "Rue Delacroix",
-    role: "hunter",
-    traits: ["hothead", "charming"],
-    bio: "A drover who lost her herd and her patience in the same week.",
-    generic: true,
-  },
-  {
-    id: "orin",
-    name: "Orin Fell",
-    role: "scout",
-    traits: ["paranoid", "coward"],
-    bio: "Left alone in a burnt wagon with a ledger and a cough. He is sure someone is behind him.",
-    maxHealth: 65,
-  },
-  {
-    id: "hollis",
-    name: "Hollis Grey",
-    role: "hunter",
-    traits: ["kind", "stoic"],
-    bio: "A ferryman's son with a borrowed rifle and a way of standing very still.",
-    generic: true,
-  },
-  {
-    id: "nell",
-    name: "Nell Ashby",
-    role: "speaker",
-    traits: ["paranoid", "coward"],
-    bio: "A postmistress who kept the last mail sacks and reads everything twice.",
-    maxHealth: 70,
-    generic: true,
-  },
-];
+/** People met on the road who can join the train. Never offered twice. Defined in npcs.ts. */
+export const RECRUITS: MemberTemplate[] = NPCS.map((n) => ({
+  id: n.id,
+  name: n.name,
+  role: n.role,
+  traits: n.traits.slice(),
+  bio: n.backstory,
+  maxHealth: n.maxHealth,
+  nerve: n.nerve,
+  generic: n.generic,
+}));

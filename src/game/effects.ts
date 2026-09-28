@@ -30,6 +30,8 @@ export interface Bind {
   b?: string;
   /** Draw {actor}/{other} from everyone but the wagon-master. */
   noLeader?: boolean;
+  /** Who made the option's dialogue check, if it had one. */
+  by?: string;
   /** The pair chosen by "two", fixed for the whole outcome so every effect hits the same people. */
   pair?: string[];
 }
@@ -132,6 +134,10 @@ export function resolveWho(env: Env, who: Who): Member[] {
       const actor = ensureActor(env);
       return alive.filter((m) => m.id !== actor?.id);
     }
+    case "by": {
+      const m = byId(s, env.bind.by);
+      return m && m.alive ? [m] : [];
+    }
     case "fogsick":
       return alive.filter((m) => m.fog > 0);
     case "weakest": {
@@ -145,8 +151,12 @@ export function resolveWho(env: Env, who: Who): Member[] {
 }
 
 export function fillText(env: Env, text: string): string {
-  return text.replace(/\{(actor|other|a|b|leader)\}/g, (_, key: string) => {
+  return text.replace(/\{(actor|other|a|b|leader|by)\}/g, (_, key: string) => {
     if (key === "leader") return firstName(leader(env.s));
+    if (key === "by") {
+      const m = byId(env.s, env.bind.by);
+      return m ? firstName(m) : "someone";
+    }
     if (key === "actor") {
       const m = ensureActor(env);
       return m ? firstName(m) : "someone";
@@ -179,6 +189,7 @@ export function evalCond(env: Env, c: Cond): boolean {
   if ("wagonsMin" in c) return s.train.wagons >= c.wagonsMin;
   if ("leaderFog" in c) return (leader(s).fog > 0) === c.leaderFog;
   if ("recruitLeft" in c) return !s.recruitsUsed.includes(c.recruitLeft);
+  if ("aboard" in c) return living(s).some((m) => m.id === c.aboard);
   if ("fog" in c) return living(s).some((m) => m.fog > 0);
   if ("partyMin" in c) return living(s).length >= c.partyMin;
   if ("partyMax" in c) return living(s).length <= c.partyMax;
@@ -318,6 +329,7 @@ export function recruit(env: Env, id: string | undefined, notes: string[]): Memb
   const tpl: MemberTemplate | undefined = id ? pool.find((r) => r.id === id) : anyone.length ? env.rng.pick(anyone) : undefined;
   if (!tpl) return undefined;
   s.recruitsUsed.push(tpl.id);
+  s.flags[`joined:${tpl.id}`] = s.day;
   const maxHealth = tpl.maxHealth ?? 90;
   const m: Member = {
     id: tpl.id,

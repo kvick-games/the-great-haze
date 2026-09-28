@@ -8,6 +8,7 @@ import { PACES, TUNING, zoneOf } from "./tuning.ts";
 import { regionAt } from "./world.ts";
 import { SCENES } from "./content/scenes/index.ts";
 import { hasPair } from "./scenes.ts";
+import { dueComplications } from "./dialogue.ts";
 
 const ROAD_KINDS = new Set(["hazard", "stranger", "find", "haze", "oddity", "respite"]);
 
@@ -87,7 +88,14 @@ export function rollDay(env: Env): QueueItem[] {
     chosen.push("axle-break");
   }
 
-  const pEncounter = Math.max(0.1, Math.min(0.9, region.encounter + pace.encounter));
+  // A companion's complication surfaces a few days after they join (one per day at most).
+  const due = dueComplications(s).find((id) => !chosen.includes(id));
+  if (due) {
+    items.push({ t: "scene", id: due });
+    chosen.push(due);
+  }
+
+  const pEncounter =Math.max(0.1, Math.min(0.9, region.encounter + pace.encounter));
   if (rng.chance(pEncounter)) {
     const def = pickRoadScene(env, chosen);
     if (def) {

@@ -2,6 +2,9 @@
 // a run can be saved, restored, and replayed from a seed.
 
 import type { Amount } from "./rng.ts";
+import type { CheckDef, CheckKind, CheckResult, Line, Look, SpokenLine, TellView } from "./talk-types.ts";
+
+export * from "./talk-types.ts";
 
 export const RESOURCE_IDS = [
   "rations",
@@ -85,6 +88,8 @@ export type Who =
   | "others"
   | "weakest"
   | "fogsick"
+  /** Whoever made the option's dialogue check (see checks.ts). */
+  | "by"
   | { first: Who[] }
   | { role: Role }
   | { trait: Trait };
@@ -100,6 +105,8 @@ export type Cond =
   | { wagonsMin: number }
   | { leaderFog: boolean }
   | { recruitLeft: string }
+  /** A named companion (see content/npcs.ts) is alive on the train. */
+  | { aboard: string }
   | { fog: true }
   | { partyMin: number }
   | { partyMax: number }
@@ -143,8 +150,13 @@ export type SceneKind =
 export interface Outcome {
   weight?: number;
   mods?: { if: Cond; add: number }[];
+  /** One short line of narration. The drama belongs in `talk`. */
   text: string;
   fx?: Effect[];
+  /** Spoken lines played when this outcome lands. */
+  talk?: Line[];
+  /** Only eligible when the option's dialogue check went this way. */
+  needs?: "success" | "fail";
 }
 
 export interface OptionDef {
@@ -157,6 +169,8 @@ export interface OptionDef {
   /** Known, up-front price. Paid whatever happens. */
   cost?: Partial<Resources> & { scrip?: number };
   requires?: Cond[];
+  /** A seeded charisma or perception check made before the outcome is picked. */
+  check?: CheckDef;
   /** Shown when `requires` fails. */
   why?: string;
   /** Who counts as {actor} for text and effects. */
@@ -167,7 +181,13 @@ export interface OptionDef {
 }
 
 export interface Tell {
+  /** Stable id. Defaults to `<sceneId>:<index>`. */
+  id?: string;
   text: string;
+  /** How damning it is when seen: 1 subtle, 2 clear, 3 unmistakable. Default 2. */
+  severity?: 1 | 2 | 3;
+  /** What the observer says aloud when they spot it (at most ~14 words). */
+  say?: string;
   /** Which truth this points at. "noise" tells appear under either truth. */
   shows: "genuine" | "trap" | "noise";
   /** Chance it is present given a matching truth (noise: chance of appearing). Default 0.65. */
@@ -188,7 +208,12 @@ export interface SceneDef {
   /** Strangers only: probability the situation is genuine. Default 0.5. */
   genuineOdds?: number;
   title: string;
+  /** Card narration: one or two short lines. */
   intro: string[];
+  /** The scene's spoken setup: 2-6 short lines. */
+  talk?: Line[];
+  /** Who "stranger" speakers are, for scenes with an unnamed outsider. */
+  stranger?: { name: string; look: Look };
   tells?: Tell[];
   /** {actor} and {other} are drawn from the party excluding the wagon-master (needs two others). */
   others?: boolean;
@@ -208,8 +233,14 @@ export interface SceneInstance {
   other?: string;
   a?: string;
   b?: string;
-  tells: { text: string; revealed: boolean; phantom?: boolean }[];
+  tells: { id?: string; text: string; revealed: boolean; phantom?: boolean; severity?: 1 | 2 | 3; say?: string }[];
   looks: number;
+  /** Lines spoken during the scene: what the observer says as they notice things. */
+  said?: SpokenLine[];
+  /** The last perception check made in this scene. */
+  check?: CheckResult;
+  /** Whether a member has already tried to read the stranger. */
+  read?: boolean;
   /** Who is doing the watching. */
   observer?: string;
   /** Flavor from the most recent "look closer". */
@@ -240,7 +271,7 @@ export type Pending =
   | { kind: "plan"; notes?: string[] }
   | { kind: "scene"; scene: SceneInstance }
   | { kind: "combat"; combat: CombatInstance }
-  | { kind: "result"; title: string; lines: string[]; notes: string[] }
+  | { kind: "result"; title: string; lines: string[]; notes: string[]; talk?: SpokenLine[]; check?: CheckResult }
   | { kind: "ending" };
 
 export interface DayState {
@@ -320,6 +351,8 @@ export interface ScreenOption {
   hint?: string;
   hours?: number;
   disabled?: string;
+  /** Who will make the dialogue check, and how good they are at it. */
+  check?: { kind: CheckKind; by: string; byName: string; bonus: number };
 }
 
 export interface MemberView {
@@ -332,6 +365,8 @@ export interface MemberView {
   trust: number;
   conditions: string[];
   isLeader: boolean;
+  /** Set for named companions from content/npcs.ts: how they look. */
+  look?: Look;
 }
 
 export interface Hud {
@@ -381,4 +416,10 @@ export interface Screen {
   hud: Hud;
   store?: StoreView;
   ending?: Ending;
+  /** Spoken lines to stage. Empty when the screen has none. */
+  talk: SpokenLine[];
+  /** A dialogue or perception check that just happened, if any. */
+  check?: CheckResult;
+  /** Tells the party has seen (hidden ones are never exposed). */
+  tells: TellView[];
 }

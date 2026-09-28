@@ -15,8 +15,10 @@ import type {
   ResourceId,
   Screen,
   ScreenOption,
+  SpokenLine,
   StoreLine,
   StoreView,
+  TellView,
 } from "./types.ts";
 import { RESOURCE_IDS } from "./types.ts";
 import { Rng, hashSeed } from "./rng.ts";
@@ -47,7 +49,7 @@ import { finish } from "./ending.ts";
 import { baseHazeMiles, catchupMiles, expectedHazeMiles, hoursToMiles, mph, planTravel } from "./travel.ts";
 import { processNight } from "./night.ts";
 import { rollDay } from "./events.ts";
-import { buildScene, doLook, hasPair, optionAvailable, resolveOption, requireScene, sceneOptions, sceneText, bindFor } from "./scenes.ts";
+import { buildScene, doLook, doRead, hasPair, optionAvailable, resolveOption, requireScene, sceneOptions, sceneText, bindFor } from "./scenes.ts";
 import { combatOptions, combatRound, combatSummary, enemyDef, startCombat } from "./combat.ts";
 
 export interface NewGameOptions {
@@ -275,7 +277,7 @@ export class Game {
     const s = this.s;
     const p = s.pending;
     const hud = this.hud();
-    const base = { hud, observations: [] as string[], notes: [] as string[] };
+    const base = { hud, observations: [] as string[], notes: [] as string[], talk: [] as SpokenLine[], tells: [] as TellView[] };
     switch (p.kind) {
       case "setup": {
         const options: ScreenOption[] = p.offered.map((id) => {
@@ -339,6 +341,8 @@ export class Game {
           hud,
           observations: [],
           notes: p.notes ?? [],
+          talk: [],
+          tells: [],
         };
       }
       case "arrival": {
@@ -377,6 +381,9 @@ export class Game {
           hud,
           observations: text.observations,
           notes: p.scene.note ? [p.scene.note] : [],
+          talk: text.talk,
+          tells: text.tells,
+          check: p.scene.check,
         };
       }
       case "combat": {
@@ -390,6 +397,8 @@ export class Game {
           hud,
           observations: p.combat.log.slice(),
           notes: [],
+          talk: [],
+          tells: [],
         };
       }
       case "result":
@@ -401,6 +410,9 @@ export class Game {
           hud,
           observations: [],
           notes: p.notes,
+          talk: p.talk ?? [],
+          tells: [],
+          check: p.check,
         };
       case "ending": {
         const e = s.ending!;
@@ -416,7 +428,7 @@ export class Game {
     }
   }
 
-  private planScreen(base: { hud: Hud; observations: string[]; notes: string[] }): Screen {
+  private planScreen(base: { hud: Hud; observations: string[]; notes: string[]; talk: SpokenLine[]; tells: TellView[] }): Screen {
     const s = this.s;
     const p = s.pending as { kind: "plan"; notes?: string[] };
     const region = regionAt(s.miles);
@@ -431,14 +443,19 @@ export class Game {
       `The Haze is ${Math.round(s.gap)} miles behind you and moves about ${Math.round(expectedHazeMiles(s))} miles a day here.`,
       `Food for about ${daysFood.toFixed(1)} days at the current ration.`,
     ];
+    const talk: SpokenLine[] = [];
     if (s.today.forecast) {
       const haunted = able(s).find((m) => hasTrait(m, "haunted") && m.nerve > 20);
       if (haunted) {
-        lines.push(
-          s.today.surge === "surge"
-            ? `${firstName(haunted)} will not meet your eyes. "It's going to lunge today. I can hear it."`
-            : `${firstName(haunted)} tilts their head. "It's slow today. Lazy. Don't get used to it."`,
-        );
+        const surge = s.today.surge === "surge";
+        talk.push({
+          speaker: haunted.id,
+          name: firstName(haunted),
+          kind: "member",
+          text: surge ? "It's going to lunge today. I can hear it." : "It's slow today. Lazy. Don't get used to it.",
+          mood: surge ? "afraid" : "cold",
+          gesture: surge ? "turn-away" : "none",
+        });
       }
     }
     const opts: ScreenOption[] = [];
@@ -517,7 +534,7 @@ export class Game {
       hours: 1,
       disabled: s.res.torches < 1 ? "No torches." : undefined,
     });
-    return { kind: "plan", title: `Day ${s.day}: ${region.name}`, lines, options: opts, ...base, notes: p.notes ?? [] };
+    return { kind: "plan", title: `Day ${s.day}: ${region.name}`, lines, options: opts, ...base, notes: p.notes ?? [], talk };
   }
 
   // -------------------------------------------------------------------------
@@ -834,9 +851,13 @@ export class Game {
       doLook(env, p.scene);
       return;
     }
+    if (id === "read") {
+      doRead(env, p.scene);
+      return;
+    }
     const result = resolveOption(env, p.scene, id);
     if (s.ending) return;
-    s.pending = { kind: "result", title: result.title, lines: result.lines, notes: result.notes };
+    s.pending = { kind: "result", title: result.title, lines: result.lines, notes: result.notes, talk: result.talk, check: result.check };
   }
 
   private combatAction(id: string): void {

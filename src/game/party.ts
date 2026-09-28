@@ -2,6 +2,7 @@
 
 import type { GameState, Member, Trait, Role, MemberView, Resources } from "./types.ts";
 import { ITEMS, TUNING } from "./tuning.ts";
+import { npcById } from "./content/npcs.ts";
 
 export function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n));
@@ -94,6 +95,7 @@ export function memberView(m: Member): MemberView {
     trust: Math.round(m.trust),
     conditions: conditionsOf(m),
     isLeader: m.isLeader,
+    look: m.recruited ? npcById(m.id)?.look : undefined,
   };
 }
 

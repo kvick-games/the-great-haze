@@ -4,6 +4,7 @@ import { STRANGERS } from "./strangers.ts";
 import { FINDS, HAZE_EVENTS, ODDITIES, RESPITES } from "./finds.ts";
 import { QUARRELS, CRISES } from "./people.ts";
 import { LANDMARK_SCENES } from "./landmarks.ts";
+import { COMPANION_SCENES } from "./companions.ts";
 
 export const SCENES: SceneDef[] = [
   ...HAZARDS,
@@ -15,6 +16,7 @@ export const SCENES: SceneDef[] = [
   ...QUARRELS,
   ...CRISES,
   ...LANDMARK_SCENES,
+  ...COMPANION_SCENES,
 ];
 
 const BY_ID = new Map<string, SceneDef>(SCENES.map((s) => [s.id, s]));
