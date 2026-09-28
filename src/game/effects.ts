@@ -22,6 +22,7 @@ import { ITEMS, TUNING } from "./tuning.ts";
 import { RECRUITS } from "./content/roster.ts";
 import type { MemberTemplate } from "./content/roster.ts";
 import { finish } from "./ending.ts";
+import { travelMiles } from "./map.ts";
 
 export interface Bind {
   actor?: string;
@@ -488,10 +489,9 @@ export function applyEffect(env: Env, e: Effect, notes: string[]): void {
       return;
     }
     case "advance": {
-      const d = Math.min(rng.amount(e.miles), TUNING.totalMiles - s.miles - 1);
-      s.miles += d;
+      const d = travelMiles(s, rng.amount(e.miles)).distance;
       s.gap += d;
-      if (d > 0) notes.push(`The road carries you ${d} miles ahead.`);
+      if (d >= 0.5) notes.push(`The road carries you ${Math.round(d)} miles ahead.`);
       return;
     }
     case "hours": {

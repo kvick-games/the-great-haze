@@ -3,15 +3,14 @@
 import type { GameState, HazeZone } from "./types.ts";
 import { TUNING, PACES, DIFFICULTY, zoneOf } from "./tuning.ts";
 import { clamp } from "./party.ts";
-import { regionAt } from "./world.ts";
+import { activeEdge, hazeMult, mphOn, regionOf, wagonSpeedFactor } from "./map.ts";
 
-export function wagonSpeedFactor(s: GameState): number {
-  return 0.55 + 0.45 * (s.train.condition / 100);
-}
+export { wagonSpeedFactor };
 
 /** Miles covered per travel hour right now. */
 export function mph(s: GameState): number {
-  return TUNING.baseMph * regionAt(s.miles).terrain * wagonSpeedFactor(s);
+  const e = activeEdge(s);
+  return e ? mphOn(s, e) : TUNING.baseMph * regionOf(s).terrain * wagonSpeedFactor(s);
 }
 
 export function hoursToMiles(s: GameState, hours: number): number {
@@ -27,7 +26,7 @@ export function zone(s: GameState): HazeZone {
 }
 
 export function baseHazeMiles(s: GameState): number {
-  return regionAt(s.miles).haze * DIFFICULTY[s.difficulty].haze;
+  return regionOf(s).haze * hazeMult(s) * DIFFICULTY[s.difficulty].haze;
 }
 
 /** Catch-up pressure: the Haze quickens when the wagons pull far ahead. */

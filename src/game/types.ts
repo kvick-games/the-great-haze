@@ -2,6 +2,7 @@
 // a run can be saved, restored, and replayed from a seed.
 
 import type { Amount } from "./rng.ts";
+import type { ForkView, MapHud, MapOffer, RouteState } from "./map-types.ts";
 
 export const RESOURCE_IDS = [
   "rations",
@@ -230,6 +231,8 @@ export type QueueItem =
   | { t: "scene"; id: string; a?: string; b?: string; actor?: string }
   | { t: "combat"; enemy: string }
   | { t: "arrival"; id: string }
+  | { t: "fork"; node: string }
+  | { t: "beat"; edge: string; i: number; prep: number; lie: number }
   | { t: "plan" }
   | { t: "travel" };
 
@@ -237,6 +240,7 @@ export type Pending =
   | { kind: "setup"; offered: string[]; picked: string[] }
   | { kind: "store"; storeId: string; then?: string; notes?: string[] }
   | { kind: "arrival"; id: string }
+  | { kind: "fork"; node: string }
   | { kind: "plan"; notes?: string[] }
   | { kind: "scene"; scene: SceneInstance }
   | { kind: "combat"; combat: CombatInstance }
@@ -308,6 +312,8 @@ export interface GameState {
   journal: string[];
   stats: RunStats;
   ending: Ending | null;
+  /** Position on the route graph and the maps held. Absent in saves from before the route map. */
+  route: RouteState;
 }
 
 // ---------------------------------------------------------------------------
@@ -342,6 +348,7 @@ export interface Hud {
   zone: HazeZone;
   hazeToday: number;
   region: string;
+  regionId: RegionId;
   sky: string;
   scrip: number;
   res: Resources;
@@ -352,6 +359,8 @@ export interface Hud {
   pace: PaceId;
   rations: RationId;
   party: MemberView[];
+  /** The route as the player believes it: pure data for drawing a map. */
+  map: MapHud;
 }
 
 export interface StoreLine {
@@ -369,6 +378,8 @@ export interface StoreView {
   name: string;
   keeper: string;
   lines: StoreLine[];
+  /** Maps for sale here. */
+  maps?: MapOffer[];
 }
 
 export interface Screen {
@@ -380,5 +391,7 @@ export interface Screen {
   options: ScreenOption[];
   hud: Hud;
   store?: StoreView;
+  /** Fork screens: the roads on offer, as the player's map describes them. */
+  fork?: ForkView;
   ending?: Ending;
 }

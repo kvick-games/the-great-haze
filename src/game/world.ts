@@ -3,6 +3,7 @@
 
 import type { RegionId, ResourceId } from "./types.ts";
 import type { StoreDef } from "./tuning.ts";
+import { EDGES, NODES } from "./routes.ts";
 
 export interface RegionDef {
   id: RegionId;
@@ -141,57 +142,24 @@ export interface LandmarkDef {
   scene?: string;
 }
 
-export const LANDMARKS: LandmarkDef[] = [
-  {
-    id: "ninefold-bridge",
-    mile: 128,
-    name: "Ninefold Bridge",
-    blurb: "Nine stone arches over a brown river. Most of one is missing.",
-    scene: "ninefold-crossing",
-  },
-  {
-    id: "meridian-wayhouse",
-    mile: 250,
-    name: "Meridian Wayhouse",
-    blurb: "A Company waystation at the edge of the Flats, lit windows and a well-fed man on the porch.",
-    storeId: "wayhouse",
-  },
-  {
-    id: "glass-fork",
-    mile: 380,
-    name: "The Fork at Glass Cross",
-    blurb: "Two roads part in the salt. One goes around the old woods. One goes through them.",
-    scene: "glass-fork",
-  },
-  {
-    id: "saint-ambrose",
-    mile: 500,
-    name: "Mission of Saint Ambrose",
-    blurb: "A whitewashed mission with a bell tower. A single light burns in the window.",
-    scene: "saint-ambrose",
-  },
-  {
-    id: "spine-toll",
-    mile: 590,
-    name: "The Toll Gate",
-    blurb: "A chain across the pass, a hut, and men who have been waiting a long time for someone like you.",
-    scene: "toll-gate",
-  },
-  {
-    id: "last-lamp",
-    mile: 715,
-    name: "Last Lamp",
-    blurb: "The final trading post before the Reach. Every lantern here is lit, and every price is a hostage.",
-    storeId: "last-lamp",
-  },
-  {
-    id: "the-gate",
-    mile: 840,
-    name: "The Blue Reach",
-    blurb: "A wall of white stone. Above it, a sky that is still blue.",
-    scene: "the-gate",
-  },
-];
+/**
+ * Places on the main road, with the mile at which each falls along it. Derived from
+ * the route graph (routes.ts); forks are not landmarks, since where they lead is the
+ * player's choice. Miles here are for gauges and are exact only on the main road.
+ */
+function mainRoadLandmarks(): LandmarkDef[] {
+  const out: LandmarkDef[] = [];
+  let mile = 0;
+  for (const e of EDGES.filter((x) => x.main)) {
+    mile += e.miles;
+    const n = NODES.find((x) => x.id === e.to);
+    if (!n || n.kind === "fork") continue;
+    out.push({ id: n.id, mile, name: n.name, blurb: n.blurb, storeId: n.storeId, scene: n.scene });
+  }
+  return out;
+}
+
+export const LANDMARKS: LandmarkDef[] = mainRoadLandmarks();
 
 export const STORES: Record<string, StoreDef> = {
   "cinder-ford": {
@@ -220,6 +188,26 @@ export const STORES: Record<string, StoreDef> = {
     stock: { rations: 35, torches: 14, ammo: 20, medicine: 4, spares: 2, veils: 6, rockets: 3 },
     buyback: 0.25,
   },
+};
+
+STORES["drovers-rest"] = {
+  id: "drovers-rest",
+  name: "Drovers' Rest Store",
+  keeper: "Tam, the last drover",
+  markup: 1.5,
+  stopHours: 1.5,
+  stock: { rations: 30, torches: 8, ammo: 14, medicine: 2, spares: 2, veils: 3, rockets: 1 },
+  buyback: 0.3,
+};
+
+STORES["sallow-landing"] = {
+  id: "sallow-landing",
+  name: "The Raft at Sallow Landing",
+  keeper: "The woman on the raft",
+  markup: 1.8,
+  stopHours: 1.5,
+  stock: { rations: 22, torches: 10, ammo: 10, medicine: 3, spares: 1, veils: 4, rockets: 2 },
+  buyback: 0.25,
 };
 
 export const STORE_RESOURCES: ResourceId[] = ["rations", "torches", "ammo", "medicine", "spares", "veils", "rockets"];

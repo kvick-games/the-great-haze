@@ -40,11 +40,30 @@ import {
   pairKey,
 } from "./party.ts";
 import { DIFFICULTY, ITEMS, PACES, RATIONS, TUNING, zoneOf } from "./tuning.ts";
-import { LANDMARKS, STORES, regionAt } from "./world.ts";
+import { STORES } from "./world.ts";
+import { EDGE_BY_ID, NODE_BY_ID } from "./routes.ts";
+import {
+  atEnd,
+  beginBeat,
+  buyMap,
+  chooseRoute,
+  ensureRoute,
+  forageMult,
+  forkView,
+  initRoute,
+  mapHud,
+  mapOffersAt,
+  regionOf,
+  routeOptionText,
+  routeRemaining,
+  takeArrivals,
+  travelHours as routeTravel,
+  wearMult,
+} from "./map.ts";
 import { BACKGROUNDS, ROSTER } from "./content/roster.ts";
 import type { MemberTemplate } from "./content/roster.ts";
 import { finish } from "./ending.ts";
-import { baseHazeMiles, catchupMiles, expectedHazeMiles, hoursToMiles, mph, planTravel } from "./travel.ts";
+import { baseHazeMiles, catchupMiles, expectedHazeMiles, hoursToMiles, planTravel } from "./travel.ts";
 import { processNight } from "./night.ts";
 import { rollDay } from "./events.ts";
 import { buildScene, doLook, hasPair, optionAvailable, resolveOption, requireScene, sceneOptions, sceneText, bindFor } from "./scenes.ts";
@@ -96,6 +115,7 @@ export class Game {
 
   constructor(state: GameState) {
     this.s = state;
+    ensureRoute(state);
     this.rng = new Rng(state);
   }
 
@@ -151,6 +171,7 @@ export class Game {
         daysNoRations: 0,
       },
       ending: null,
+      route: initRoute(),
     };
     const game = new Game(state);
     const leaderTpl: MemberTemplate = {
@@ -228,16 +249,17 @@ export class Game {
 
   hud(): Hud {
     const s = this.s;
-    const region = regionAt(s.miles);
+    const region = regionOf(s);
     const zone = zoneOf(s.gap);
     return {
       day: s.day,
       miles: Math.round(s.miles),
-      milesToGo: Math.max(0, Math.round(TUNING.totalMiles - s.miles)),
+      milesToGo: Math.max(0, Math.round(routeRemaining(s))),
       gap: Math.round(s.gap * 10) / 10,
       zone,
       hazeToday: Math.round(expectedHazeMiles(s)),
       region: region.name,
+      regionId: region.id,
       sky: region.sky[ZONE_INDEX[zone]],
       scrip: s.scrip,
       res: { ...s.res },
@@ -248,6 +270,7 @@ export class Game {
       pace: s.pace,
       rations: s.rations,
       party: living(s).map(memberView),
+      map: mapHud(s),
     };
   }
 
@@ -268,7 +291,8 @@ export class Game {
         stock: stock[id] ?? 0,
       };
     });
-    return { name: def.name, keeper: def.keeper, lines };
+    const maps = mapOffersAt(this.s, storeId);
+    return maps.length ? { name: def.name, keeper: def.keeper, lines, maps } : { name: def.name, keeper: def.keeper, lines };
   }
 
   screen(): Screen {
@@ -317,6 +341,14 @@ export class Game {
             hours: 1,
           });
         }
+        for (const m of mapOffersAt(s, p.storeId)) {
+          opts.push({
+            id: `buymap:${m.id}`,
+            label: `Buy ${m.name} (${m.price} scrip)`,
+            hint: [m.pitch, ...m.clues].join(" "),
+            disabled: m.owned ? "You already carry it." : s.scrip < m.price ? "You cannot afford it." : undefined,
+          });
+        }
         opts.push({
           id: "depart",
           label: p.storeId === "cinder-ford" ? "Hitch the oxen and leave Cinder Ford" : "Leave the store",
@@ -342,14 +374,14 @@ export class Game {
         };
       }
       case "arrival": {
-        const lm = LANDMARKS.find((l) => l.id === p.id)!;
+        const lm = NODE_BY_ID.get(p.id)!;
         const opts: ScreenOption[] = [];
         if (lm.storeId) {
           opts.push({
             id: "shop",
             label: `Resupply at ${STORES[lm.storeId].name}`,
             hint: "You will take stock of what you need. It takes hours.",
-            hours: TUNING.storeHours,
+            hours: STORES[lm.storeId].stopHours ?? TUNING.storeHours,
           });
           opts.push({ id: "move", label: "Press on without stopping", hint: "The Haze does not shop." });
         } else {
@@ -358,9 +390,30 @@ export class Game {
         return {
           kind: "arrival",
           title: lm.name,
-          lines: [lm.blurb, regionAt(s.miles).sky[ZONE_INDEX[zoneOf(s.gap)]]],
+          lines: [lm.blurb, regionOf(s).sky[ZONE_INDEX[zoneOf(s.gap)]]],
           options: opts,
           ...base,
+        };
+      }
+      case "fork": {
+        const node = NODE_BY_ID.get(p.node)!;
+        const view = forkView(s, p.node);
+        const held = s.route.maps.length > 0;
+        return {
+          kind: "fork",
+          title: node.name,
+          lines: [
+            node.blurb,
+            held ? "You unroll your map against a wheel and look for where it says the roads go." : "Your rough map shows the roads and their lengths, and nothing else.",
+          ],
+          options: view.routes.map((v) => {
+            const { label, hint } = routeOptionText(v);
+            return { id: v.id, label, hint };
+          }),
+          hud,
+          observations: view.routes.filter((v) => v.sign).map((v) => v.sign as string),
+          notes: [],
+          fork: view,
         };
       }
       case "plan":
@@ -419,7 +472,7 @@ export class Game {
   private planScreen(base: { hud: Hud; observations: string[]; notes: string[] }): Screen {
     const s = this.s;
     const p = s.pending as { kind: "plan"; notes?: string[] };
-    const region = regionAt(s.miles);
+    const region = regionOf(s);
     const zone = zoneOf(s.gap);
     const mouths = living(s).length;
     const ration = RATIONS[s.rations];
@@ -555,6 +608,10 @@ export class Game {
         break;
       }
       case "store": {
+        if (id.startsWith("buymap:")) {
+          p.notes = [buyMap(s, id.slice("buymap:".length), p.storeId)];
+          break;
+        }
         if (id === "inspect") {
           s.flags[`inspected:${p.storeId}`] = 1;
           s.carryHours = Math.min(TUNING.maxCarryHours, s.carryHours + 1);
@@ -576,10 +633,11 @@ export class Game {
         break;
       }
       case "arrival": {
-        const lm = LANDMARKS.find((l) => l.id === p.id)!;
+        const lm = NODE_BY_ID.get(p.id)!;
         if (id === "shop" && lm.storeId) {
-          s.carryHours = Math.min(TUNING.maxCarryHours, s.carryHours + TUNING.storeHours);
-          s.stats.hoursLost += TUNING.storeHours;
+          const stop = STORES[lm.storeId].stopHours ?? TUNING.storeHours;
+          s.carryHours = Math.min(TUNING.maxCarryHours, s.carryHours + stop);
+          s.stats.hoursLost += stop;
           this.initStock(lm.storeId);
           s.pending = { kind: "store", storeId: lm.storeId, then: lm.scene };
         } else {
@@ -588,6 +646,9 @@ export class Game {
         }
         break;
       }
+      case "fork":
+        this.forkAction(id);
+        break;
       case "plan":
         this.planAction(id);
         break;
@@ -712,7 +773,7 @@ export class Game {
 
   private forage(notes: string[]): void {
     const s = this.s;
-    const region = regionAt(s.miles);
+    const region = regionOf(s);
     const hunter = hasRole(s, "hunter");
     const h = hunter || hasRole(s, "scout") ? 2 : 3;
     s.today.hoursUsed += h;
@@ -721,7 +782,7 @@ export class Game {
     const key = `forage:${region.id}`;
     const times = s.flags[key] ?? 0;
     s.flags[key] = times + 1;
-    const yieldMult = region.forage * Math.max(0.3, 1 - 0.18 * times) * (hunter ? 1.3 : 1);
+    const yieldMult = region.forage * forageMult(s) * Math.max(0.3, 1 - 0.18 * times) * (hunter ? 1.3 : 1);
     const roll = this.rng.next();
     if (roll < 0.1) {
       const enemy = region.id === "pines" || region.id === "fen" ? "haze-hounds" : "hollowed-single";
@@ -811,8 +872,15 @@ export class Game {
           return;
         }
         case "arrival":
+          if (!NODE_BY_ID.has(item.id)) continue;
           s.pending = { kind: "arrival", id: item.id };
           return;
+        case "fork":
+          s.pending = { kind: "fork", node: item.node };
+          return;
+        case "beat":
+          s.queue.unshift({ t: "scene", id: beginBeat(s, item.edge, item.i, item.prep, item.lie) });
+          continue;
         case "plan":
           s.pending = { kind: "plan" };
           return;
@@ -839,6 +907,33 @@ export class Game {
     s.pending = { kind: "result", title: result.title, lines: result.lines, notes: result.notes };
   }
 
+  private applyCaches(edges: string[], notes: string[]): void {
+    for (const edge of edges) {
+      const e = EDGE_BY_ID.get(edge);
+      if (!e?.cache) continue;
+      notes.push("Cairns along the road hold offerings of food.");
+      addResource(this.env(), "rations", this.rng.amount(e.cache), notes);
+    }
+  }
+
+  private forkAction(id: string): void {
+    const s = this.s;
+    const node = s.route.node;
+    const pick = chooseRoute(s, id);
+    const notes = pick.notes.slice();
+    if (pick.phantom) {
+      s.carryHours = Math.min(TUNING.maxCarryHours, s.carryHours + 4);
+      s.stats.hoursLost += 4;
+      notes.unshift("Time: 4h");
+      s.queue.unshift({ t: "fork", node });
+    } else {
+      const arrived = takeArrivals(s);
+      s.queue.unshift(...arrived.items);
+      this.applyCaches(arrived.caches, notes);
+    }
+    s.pending = { kind: "result", title: pick.title, lines: pick.lines, notes };
+  }
+
   private combatAction(id: string): void {
     const s = this.s;
     const p = s.pending;
@@ -862,7 +957,8 @@ export class Game {
     const s = this.s;
     const env = this.env();
     const pace = PACES[s.pace];
-    const region = regionAt(s.miles);
+    const region = regionOf(s);
+    const edgeWear = wearMult(s);
     const lines: string[] = [];
     const notes: string[] = [];
 
@@ -874,8 +970,7 @@ export class Game {
     s.today.hoursUsed = 0;
 
     const gapBefore = s.gap;
-    const distance = Math.min(TUNING.totalMiles - s.miles, travelHours * mph(s));
-    s.miles += distance;
+    const distance = routeTravel(s, travelHours).distance;
     const hazeMove = s.today.hazeMiles;
     s.gap += distance - hazeMove;
 
@@ -898,14 +993,14 @@ export class Game {
 
     if (travelHours > 0) {
       const rough = region.id === "spine" ? 1.6 : region.id === "fen" ? 1.2 : 1;
-      const wear = pace.wear * this.rng.float(0.6, 1.8) * rough;
+      const wear = pace.wear * this.rng.float(0.6, 1.8) * rough * edgeWear;
       s.train.condition = Math.max(0, s.train.condition - wear);
       if (s.train.condition < 40) lines.push("The wagons groan and shudder. Something is going to give.");
     }
 
     s.stats.minGap = Math.min(s.stats.minGap, s.gap);
 
-    if (s.gap <= 0 && s.miles < TUNING.totalMiles) {
+    if (s.gap <= 0 && !atEnd(s)) {
       finish(s, "consumed", "The Great Haze takes you.", [
         `On day ${s.day}, the fog rolls over the wagons like a tide over sand.`,
         "It is warm. It is very quiet. You can hear the others breathing, and then you can't.",
@@ -925,13 +1020,10 @@ export class Game {
 
     // Night crises come before the dawn's arrivals.
     for (const c of night.crises) s.queue.push(c);
-    for (const lm of LANDMARKS) {
-      if (lm.mile > s.today.startMiles && lm.mile <= s.miles + 0.001 && !s.landmarks.includes(lm.id)) {
-        s.landmarks.push(lm.id);
-        s.queue.push({ t: "arrival", id: lm.id });
-        lines.push(`You reach ${lm.name}.`);
-      }
-    }
+    const arrived = takeArrivals(s);
+    s.queue.push(...arrived.items);
+    lines.push(...arrived.lines);
+    this.applyCaches(arrived.caches, notes);
     s.journal.push(`Day ${s.day}: ${Math.round(s.miles)} mi, gap ${Math.round(s.gap)}`);
     s.pending = { kind: "result", title: `Nightfall, day ${s.day}`, lines, notes };
   }

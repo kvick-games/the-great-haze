@@ -5,7 +5,7 @@ import type { Env } from "./effects.ts";
 import { allConds } from "./effects.ts";
 import { avgNerve, bond, living, hasTrait } from "./party.ts";
 import { PACES, TUNING, zoneOf } from "./tuning.ts";
-import { regionAt } from "./world.ts";
+import { encounterBonus, regionOf } from "./map.ts";
 import { SCENES } from "./content/scenes/index.ts";
 import { hasPair } from "./scenes.ts";
 
@@ -13,7 +13,7 @@ const ROAD_KINDS = new Set(["hazard", "stranger", "find", "haze", "oddity", "res
 
 function eligible(env: Env, def: SceneDef): boolean {
   const s = env.s;
-  if (def.regions && !def.regions.includes(regionAt(s.miles).id)) return false;
+  if (def.regions && !def.regions.includes(regionOf(s).id)) return false;
   if (def.minMile !== undefined && s.miles < def.minMile) return false;
   if (def.maxMile !== undefined && s.miles > def.maxMile) return false;
   if (def.once && s.used.includes(def.id)) return false;
@@ -72,7 +72,7 @@ export function rollDay(env: Env): QueueItem[] {
   const { s, rng } = env;
   const items: QueueItem[] = [];
   const pace = PACES[s.pace];
-  const region = regionAt(s.miles);
+  const region = regionOf(s);
   const chosen: string[] = [];
 
   // A member with a low mood or a dying friend can also ruin the day, but the
@@ -87,7 +87,7 @@ export function rollDay(env: Env): QueueItem[] {
     chosen.push("axle-break");
   }
 
-  const pEncounter = Math.max(0.1, Math.min(0.9, region.encounter + pace.encounter));
+  const pEncounter = Math.max(0.1, Math.min(0.9, region.encounter + pace.encounter + encounterBonus(s)));
   if (rng.chance(pEncounter)) {
     const def = pickRoadScene(env, chosen);
     if (def) {

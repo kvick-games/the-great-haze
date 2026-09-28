@@ -3,7 +3,7 @@
 
 import type { EndingKind, GameState } from "./types.ts";
 import { living } from "./party.ts";
-import { TUNING } from "./tuning.ts";
+import { routeLength } from "./map.ts";
 
 export function computeScore(s: GameState, kind: EndingKind): number {
   const survivors = living(s);
@@ -34,7 +34,7 @@ export function finish(s: GameState, kind: EndingKind, headline: string, lines: 
   }
   epilogue.push("");
   epilogue.push(
-    `${Math.round(s.miles)} of ${TUNING.totalMiles} miles in ${s.day} days. ` +
+    `${Math.round(s.miles)} of ${Math.round(routeLength(s))} miles in ${s.day} days. ` +
       `${living(s).length} of ${s.party.length} who walked with you at the end.`,
   );
   s.ending = { kind, headline, lines: epilogue, score: computeScore(s, kind) };
