@@ -1,6 +1,6 @@
 // Render one situation of the 3D client for visual review.
 //   node tools/web-scene.mjs out.png [setup.js] [waitMs]
-// setup.js runs in the page after boot (window.__haze is available).
+// setup.js runs in the page after boot (window.__haze is available); examples in tools/scenes/.
 import { chromium } from "playwright-core";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -9,7 +9,8 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const [out, setupFile, wait = "4000"] = process.argv.slice(2);
 const setup = setupFile ? readFileSync(setupFile, "utf8") : "";
-const exe = ["/opt/pw-browsers/chromium-1194/chrome-linux/chrome"].find(existsSync);
+// CHROME_PATH points at a local Chrome/Chromium; otherwise Playwright's own browser is used.
+const exe = [process.env.CHROME_PATH, "/opt/pw-browsers/chromium-1194/chrome-linux/chrome"].find((p) => p && existsSync(p));
 const browser = await chromium.launch({ executablePath: exe, args: ["--no-sandbox", "--enable-unsafe-swiftshader", "--use-angle=swiftshader", "--ignore-gpu-blocklist"] });
 const page = await browser.newPage({ viewport: { width: Number(process.env.W ?? 1280), height: Number(process.env.H ?? 720) } });
 const errors = [];

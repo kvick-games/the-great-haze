@@ -10,3 +10,4 @@ This is a Dream Engine game project. The working title is provisional.
 - Make meaningful local Git checkpoint commits. The authorized origin is https://github.com/kvick-games/the-great-haze.git.
 - Use DT_Backup for backup operations. New project backup selection is opt-in.
 - The simulation core in `src/game/` has tests: run `npm test`, `npm run typecheck`, and `npm run validate` (manifests and referenced paths) before committing. `web/` is a Three.js prototype client over the same core; check it with `npm run web:build` and `npm run web:smoke`. Read `docs/design.md` for the systems and `docs/game-brief.md` for the original request. Keep `src/game/` free of engine, rendering, and Node imports.
+- The next round of work (dialogue, route map and forks, caravan visuals, companions, and the Hyperlab/fal video pipeline) is planned in `docs/handoff-video-experiment.md`. Start there.
