@@ -7,6 +7,7 @@
 // apart at a distance in the dark; coat colours vary but are a secondary cue.
 
 import type { Role, Trait } from "../../../src/game/types.ts";
+import type { Look as SimLook } from "../../../src/game/talk-types.ts";
 import { Figure } from "./actors.ts";
 import type { Age, BeardStyle, Build, Hat, HairStyle, Look, Prop } from "./actors.ts";
 
@@ -103,6 +104,8 @@ export interface LookDescription {
   hollow?: boolean;
   /** Thin, tired, ill-looking by nature (a "sickly" trait). */
   gaunt?: boolean;
+  /** Height multiplier. */
+  stature?: number;
 }
 
 export const SKINS = [0x6a4a3a, 0x4a3226, 0x8a6a55, 0x3a2820, 0x7a5a48, 0x5c4033];
@@ -177,6 +180,7 @@ export function resolveLook(desc: LookDescription, seed = ""): Look {
     hatColor: desc.hatColor !== undefined ? parseColor(desc.hatColor, 0x0b0908) : undefined,
     props,
     seed: hashString(seed || "anon") & 0x7fffffff,
+    stature: desc.stature,
   };
 }
 
@@ -236,3 +240,95 @@ export const ENEMY_LOOKS: Record<string, Look> = {
   official: { hat: "tall", coat: 0x1c2230, trousers: 0x12141a, accent: 0x8a2020, skin: SKINS[4], build: "broad", longCoat: true },
   preacher: { hat: "wide", coat: 0x140c0c, trousers: 0x100a0a, accent: 0x9a1a1a, skin: SKINS[2], build: "gaunt", longCoat: true },
 };
+
+// ---- The sim's look (content/npcs.ts) onto a description ---------------------------------
+
+function skinFor(text: string): number {
+  const t = text.toLowerCase();
+  if (/(dark|deep|ebony)/.test(t)) return SKINS[3];
+  if (/(brown|umber|bronze)/.test(t)) return SKINS[1];
+  if (/(olive|tan|sallow|ruddy)/.test(t)) return SKINS[2];
+  if (/(fair|pale|freckl|ash|grey|gray|white|waxy)/.test(t)) return 0x9a7a65;
+  return SKINS[4];
+}
+
+/** Colour words in the first of these phrases that has one. */
+function firstColor(phrases: string[], fallback: number): number {
+  for (const p of phrases) {
+    const c = parseColor(p, -1);
+    if (c >= 0) return c;
+  }
+  return fallback;
+}
+
+const PROP_FOR: [RegExp, Prop][] = [
+  [/rifle|musket|carbine|shotgun/, "rifle"],
+  [/lantern|lamp/, "lantern"],
+  [/bag/, "bag"],
+  [/shoe|boot/, "shoe"],
+  [/bell/, "bell"],
+  [/whip/, "whip"],
+  [/sack|satchel|pouch/, "sack"],
+  [/roll|portfolio|rope|map/, "roll"],
+  [/crook|crutch|pole|staff|cane/, "staff"],
+  [/ledger|book|receipt/, "book"],
+];
+
+function propsFor(id: string, desc: string): Prop[] {
+  const hit = PROP_FOR.find(([re]) => re.test(id.toLowerCase())) ?? PROP_FOR.find(([re]) => re.test(desc.toLowerCase()));
+  return hit ? [hit[1]] : [];
+}
+
+function headwearFor(clothing: string, hair: string): Hat | undefined {
+  const t = clothing.toLowerCase();
+  if (hair === "covered") return /bonnet|scarf|kerchief/.test(t) ? "bonnet" : "hood";
+  if (/top hat|stovepipe/.test(t)) return "tall";
+  if (/\bhat\b/.test(t)) return "wide";
+  if (/hood|cowl|habit/.test(t)) return "hood";
+  if (/bonnet|headscarf|kerchief/.test(t)) return "bonnet";
+  if (/\bcap\b/.test(t)) return "cap";
+  return undefined;
+}
+
+/** Map a person from the sim (an NPC or a stranger with a look) onto a figure description. */
+export function describeSimLook(look: SimLook, role?: Role): LookDescription {
+  const age: Age = look.age < 14 ? "child" : look.age < 30 ? "young" : look.age < 48 ? "adult" : look.age < 62 ? "middle" : "old";
+  const build: Build =
+    look.build === "small"
+      ? look.age < 14
+        ? "child"
+        : "slight"
+      : look.build === "slight" || look.build === "lean"
+        ? "slight"
+        : look.build === "gaunt"
+          ? "gaunt"
+          : look.build === "average"
+            ? "normal"
+            : "broad";
+  const coatText = look.clothing.find((c) => /coat|jacket|habit|waistcoat|duster|oilskin|dress|apron|shirt|robe/.test(c)) ?? look.clothing[0] ?? "";
+  const hs = look.hair.style;
+  const hairStyle: HairStyle = hs === "bald" ? "none" : hs === "cropped" || hs === "short" ? "short" : hs === "shaggy" ? "wild" : hs === "long" ? "long" : hs === "braided" ? "braid" : hs === "bun" ? "bun" : "short";
+  const facial = look.hair.facial;
+  const beard: BeardStyle = facial === "none" ? "none" : facial === "stubble" ? "stubble" : facial === "beard" ? "full" : facial === "long-beard" ? "long" : "mustache";
+  const hair = { style: hairStyle, color: parseColor(look.hair.color, 0x2a1c12) };
+  return {
+    build,
+    age,
+    skin: skinFor(look.skin),
+    hair,
+    beard: { style: beard, color: hair.color },
+    coat: firstColor([coatText, ...look.palette], 0x2b2620),
+    trousers: 0x171411,
+    accent: firstColor(look.palette.slice(1), 0x5a4a3a),
+    longCoat: /long|duster|oilskin|habit|dress|apron|robe/.test(coatText.toLowerCase()) || undefined,
+    headwear: headwearFor(look.clothing.join(" "), hs) ?? "bare",
+    role,
+    props: propsFor(look.prop.id, look.prop.desc),
+    stature: look.height === "tall" ? 1.07 : look.height === "short" ? 0.93 : 1,
+  };
+}
+
+/** A figure look for someone the sim has described: same seed, same person. */
+export function lookForSim(look: SimLook, seed: string, role?: Role): Look {
+  return resolveLook(describeSimLook(look, role), seed);
+}
