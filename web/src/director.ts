@@ -25,6 +25,7 @@ import { cross } from "./scenes/pieces.ts";
 import { CombatStage } from "./scenes/combat.ts";
 import type { UI } from "./ui/ui.ts";
 import type { Audio } from "./audio.ts";
+import { VideoDirector } from "./video/video-director.ts";
 
 const SAVE_KEY = "great-haze:3d:v1";
 /** `#fast` runs cinematics at high speed (automated tests, impatient players). */
@@ -73,6 +74,7 @@ export class Director {
   private baseShot: ShotFn | null = null;
   private focused: string | null = null;
   busy = false;
+  readonly video = new VideoDirector();
   private campAngle = 0.8;
 
   constructor(world: World, ui: UI, audio: Audio) {
@@ -257,6 +259,7 @@ export class Director {
     } catch {
       /* storage may be unavailable */
     }
+    this.video.persist(this.game);
   }
 
   static saved(): { day: number; miles: number; raw: string } | null {
@@ -277,6 +280,7 @@ export class Director {
     } catch {
       /* ignore */
     }
+    VideoDirector.clearSaved();
   }
 
   private wait(sec: number): Promise<void> {
@@ -465,6 +469,7 @@ export class Director {
   async newGame(opts: NewGameOptions): Promise<void> {
     Director.clearSave();
     this.game = Game.create(opts);
+    this.video.begin(this.game);
     this.screen = this.game.screen();
     this.disposeAll();
     await this.cinematic(async () => {
@@ -478,6 +483,7 @@ export class Director {
 
   resume(raw: string): void {
     this.game = Game.restore(raw);
+    this.video.resume(this.game);
     this.screen = this.game.screen();
     this.disposeAll();
     this.restore();
@@ -615,6 +621,7 @@ export class Director {
     const prev = this.screen!;
     const before = this.snapshot();
     const prevPending: Pending = JSON.parse(JSON.stringify(this.s.pending)) as Pending;
+    const videoBefore = this.video.mark(this.game);
     let next: Screen;
     try {
       next = this.game.choose(id);
@@ -623,6 +630,7 @@ export class Director {
       return;
     }
     this.screen = next;
+    const beat = this.video.observe(videoBefore, this.game, id);
     // Save now: reloading mid-cinematic must not replay a choice already made.
     this.save();
     // Choices that only change settings or the muster pick do not need a cinematic.
@@ -640,6 +648,7 @@ export class Director {
     const game = this.game;
     try {
       await this.cinematic(() => this.play(prev, prevPending, id, next, before));
+      await this.video.playFor(beat);
     } catch (e) {
       console.error(e);
     }
