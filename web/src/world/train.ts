@@ -3,9 +3,11 @@
 // making and breaking camp are animated rather than cut.
 
 import * as THREE from "three";
-import type { MemberView } from "../../../src/game/types.ts";
-import { Figure, Ox, Wagon, wrapAngle } from "./actors.ts";
+import type { Hud, MemberView } from "../../../src/game/types.ts";
+import { Figure, wrapAngle } from "./actors.ts";
 import type { Pose } from "./actors.ts";
+import { LOAD_SLOTS, Ox, Wagon } from "./wagon.ts";
+import { Pops } from "./pops.ts";
 import { Flame, LightPool, Embers } from "./fx.ts";
 import { lookFor } from "./looks.ts";
 import { disposeTree } from "./dispose.ts";
@@ -24,11 +26,19 @@ export interface MemberActor {
   /** Explicit staging from the director; overrides the formation. */
   stage: { x: number; z: number; yaw?: number; pose?: Pose; face?: THREE.Vector3 } | null;
   leaving: { x: number; z: number; t: number } | null;
+  /** The wagon this person is lying in, if any. */
+  hosted: Wagon | null;
 }
 
 export function roadPoint(s: number): THREE.Vector3 {
   const z = -s;
   return new THREE.Vector3(roadX(z), 0, z);
+}
+
+/** Unit vector pointing to the right of the direction of travel at road distance s. */
+export function roadRight(s: number): THREE.Vector3 {
+  const yaw = roadYaw(s);
+  return new THREE.Vector3(-Math.cos(yaw), 0, Math.sin(yaw));
 }
 
 /** Yaw that faces the direction of travel (toward -z) at road distance s. */
@@ -61,15 +71,24 @@ export class Train {
   private pool: LightPool;
   private embers: Embers;
   private wagonCount = 3;
+  get wagonN(): number {
+    return this.wagonCount;
+  }
   condition = 1;
   leaderId = "";
   /** True while the camp owns clearing slot 0 (the town borrows it before the first camp). */
   private ownsClearing = false;
-  private rollTween: { from: number; to: number; t: number; dur: number; resolve: () => void } | null = null;
+  private rollTween: { from: number; to: number; t: number; dur: number; cruise: boolean; resolve: () => void } | null = null;
+  /** Losses and spills that stay on the road behind the wagons. */
+  pops = new Pops();
+  private snapMembers = false;
+  /** 0..1 how hard the animals are working. */
+  strain = 0.3;
 
   constructor(pool: LightPool, embers: Embers) {
     this.pool = pool;
     this.embers = embers;
+    this.group.add(this.pops.group);
     for (let i = 0; i < 4; i++) {
       const w = new Wagon();
       this.wagons.push(w);
@@ -118,6 +137,34 @@ export class Train {
     this.condition = condition;
   }
 
+  /** Read the caravan's state off the sim: wagons, wear, supplies, and how hard the oxen work. */
+  applyHud(hud: Hud): void {
+    this.setWagons(hud.wagons, hud.condition / 100);
+    const n = this.wagonCount;
+    const r = hud.res;
+    const total = (res: number, ref: number, slots: number) => (res <= 0 ? 0 : Math.min(slots * n, Math.max(1, Math.ceil((res / ref) * slots * n))));
+    const want = {
+      sacks: total(r.rations, 110, LOAD_SLOTS.sacks),
+      barrels: total(r.ammo, 40, LOAD_SLOTS.barrels),
+      crates: total(r.medicine, 8, LOAD_SLOTS.crates),
+      sticks: total(r.torches, 28, LOAD_SLOTS.sticks),
+      wheels: total(r.spares, 5, LOAD_SLOTS.wheels),
+    };
+    this.wagons.forEach((w, i) => {
+      const share = (t: number) => Math.floor((t + n - 1 - i) / n);
+      w.setLoad({ sacks: share(want.sacks), barrels: share(want.barrels), crates: share(want.crates), sticks: share(want.sticks), wheels: share(want.wheels) });
+    });
+    const pace = hud.pace === "hard" ? 0.75 : hud.pace === "steady" ? 0.4 : hud.pace === "easy" ? 0.18 : 0.1;
+    this.strain = Math.min(1, pace + (1 - hud.condition / 100) * 0.55 + (n < 3 ? 0.15 : 0));
+    const hungry = (hud.rations === "bare" ? 0.7 : hud.rations === "meager" ? 0.35 : 0) + (r.rations < hud.party.length * 2 ? 0.3 : 0);
+    for (const pair of this.oxen) {
+      for (const o of pair) {
+        o.strain = this.strain;
+        o.thin = Math.min(1, hungry);
+      }
+    }
+  }
+
   /** Bring the party figures in line with the sim's living members. */
   syncMembers(views: MemberView[], spawnAt?: THREE.Vector3 | ((id: string) => THREE.Vector3 | undefined)): { added: string[]; removed: string[] } {
     const added: string[] = [];
@@ -126,8 +173,8 @@ export class Train {
     for (const v of views) {
       let a = this.members.get(v.id);
       if (!a) {
-        const fig = new Figure(lookFor(v.id, v.role, v.isLeader));
-        a = { id: v.id, fig, view: v, stage: null, leaving: null };
+        const fig = new Figure(lookFor(v.id, v.role, v.isLeader, v.traits));
+        a = { id: v.id, fig, view: v, stage: null, leaving: null, hosted: null };
         this.members.set(v.id, a);
         this.group.add(fig.root);
         if (v.isLeader) {
@@ -146,6 +193,14 @@ export class Train {
       a.fig.setRing(dying ? "dying" : "none");
       const fog = v.conditions.find((c) => c.startsWith("fogsick") || c === "turning");
       a.fig.eyeGlow = !fog ? 0 : fog === "fogsick I" ? 0.15 : fog === "fogsick II" ? 0.6 : 1;
+      a.fig.setCondition({
+        health: v.health,
+        nerve: v.nerve,
+        wounded: v.conditions.includes("wounded"),
+        sick: v.conditions.includes("sick"),
+        fog: !fog ? 0 : fog === "fogsick I" ? 1 : fog === "fogsick II" ? 2 : 3,
+        dying,
+      });
     }
     for (const [id, a] of this.members) {
       if (!ids.has(id) && !a.leaving) removed.push(id);
@@ -157,6 +212,7 @@ export class Train {
   dismiss(id: string, walkTo?: THREE.Vector3, dead = false): void {
     const a = this.members.get(id);
     if (!a) return;
+    this.unhost(a);
     if (dead) {
       a.stage = { x: a.fig.position.x, z: a.fig.position.z, pose: "lie" };
       a.leaving = { x: a.fig.position.x, z: a.fig.position.z, t: -3 };
@@ -171,7 +227,8 @@ export class Train {
     }
   }
 
-  roll(to: number, duration: number): Promise<void> {
+  /** Roll to road distance `to`. `cruise` holds a steady pace between a slow start and stop (tracking shots). */
+  roll(to: number, duration: number, cruise = false): Promise<void> {
     if (this.rollTween) this.rollTween.resolve();
     return new Promise((resolve) => {
       if (duration <= 0 || Math.abs(to - this.d) < 0.01) {
@@ -179,8 +236,29 @@ export class Train {
         resolve();
         return;
       }
-      this.rollTween = { from: this.d, to, t: 0, dur: duration, resolve };
+      this.rollTween = { from: this.d, to, t: 0, dur: duration, cruise, resolve };
     });
+  }
+
+  /** Jump the whole train along the road without disturbing a roll in progress (a cut hides it). */
+  warp(delta: number): void {
+    this.d += delta;
+    if (this.rollTween) {
+      this.rollTween.from += delta;
+      this.rollTween.to += delta;
+    }
+    this.snapMembers = true;
+    this.pops.clear();
+  }
+
+  /** Put a lying person back on the ground where their wagon is. */
+  private unhost(a: MemberActor): void {
+    if (!a.hosted) return;
+    const p = a.fig.root.getWorldPosition(new THREE.Vector3());
+    a.hosted.cot.remove(a.fig.root);
+    this.group.add(a.fig.root);
+    a.fig.root.position.copy(p);
+    a.hosted = null;
   }
 
   get rolling(): boolean {
@@ -238,14 +316,26 @@ export class Train {
         p.z += -Math.sin(yaw) * -1.3;
         return { pos: p, yaw, pose: "walk" as Pose };
       }
+      // Everyone walks on the right-hand side, the one a side-on camera sees: the strong
+      // ahead, the hurt falling back along the line, the scout out in front, the hunter last.
       const slot = k - 1;
       const wi = Math.min(this.wagonCount - 1, Math.floor(slot / 2));
-      const side = slot % 2 === 0 ? 1 : -1;
-      const s = this.d - wi * WAGON_GAP + 0.8 - (slot % 2) * 1.8 - Math.floor(slot / (this.wagonCount * 2)) * 2.5;
+      const lane = 2.1 + (slot % 2) * 0.75 + Math.floor(slot / (this.wagonCount * 2)) * 0.9;
+      let s = this.d - wi * WAGON_GAP + 1.4 - (slot % 2) * 3.4 - Math.floor(slot / (this.wagonCount * 2)) * 2.5;
+      let off = lane;
+      if (v.role === "scout" && v.health > 40) {
+        s = this.d + 11.5 + (slot % 3) * 2.2;
+        off = 3.6;
+      } else if (v.role === "hunter" && v.health > 40) {
+        s = this.d - (this.wagonCount - 1) * WAGON_GAP - 3.2;
+        off = 2.6;
+      }
+      const weak = Math.max(0, (70 - v.health) / 70);
+      s -= weak * 5 + (v.conditions.includes("sick") ? 1.5 : 0);
       const p = roadPoint(s);
       const yaw = roadYaw(s);
-      p.x += Math.cos(yaw) * side * 1.9;
-      p.z += -Math.sin(yaw) * side * 1.9;
+      p.x += Math.cos(yaw) * -off;
+      p.z += -Math.sin(yaw) * -off;
       return { pos: p, yaw, pose: "walk" as Pose };
     })();
     if (this.camp < 0.02) return road;
@@ -265,7 +355,13 @@ export class Train {
       const tw = this.rollTween;
       tw.t += dt;
       const u = clamp01(tw.t / tw.dur);
-      const e = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+      let e = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+      if (tw.cruise) {
+        // Trapezoid: ease in over the first tenth, steady, ease out over the last tenth.
+        const a = 0.1;
+        const vmax = 1 / (1 - a);
+        e = u < a ? (vmax * u * u) / (2 * a) : u > 1 - a ? 1 - (vmax * (1 - u) * (1 - u)) / (2 * a) : vmax * (a / 2 + (u - a));
+      }
       const prev = this.d;
       this.d = tw.from + (tw.to - tw.from) * e;
       this.speed = dt > 0 ? (this.d - prev) / dt : 0;
@@ -285,6 +381,18 @@ export class Train {
       this.ownsClearing = false;
     }
     const blend = smoothstep(0, 1, this.camp);
+    this.pops.update(dt);
+    // Who lies in which wagon: the dying ride at the tail of the train, last wagon first.
+    const hostIdx = new Map<string, number>();
+    let hk = 0;
+    for (const m of this.members.values()) {
+      if (m.view.conditions.includes("dying")) hostIdx.set(m.id, Math.max(0, this.wagonCount - 1 - hk++));
+    }
+    this.wagons.forEach((w, i) => {
+      let has = false;
+      for (const [id, wi] of hostIdx) if (wi === i && !this.members.get(id)?.stage && this.camp < 0.5) has = true;
+      w.hosting = has ? 1 : 0;
+    });
 
     // Wagons and oxen.
     for (let i = 0; i < this.wagons.length; i++) {
@@ -363,19 +471,32 @@ export class Train {
         if (a.stage.face) yaw = Math.atan2(a.stage.face.x - target.x, a.stage.face.z - target.z);
         else if (a.stage.yaw !== undefined) yaw = a.stage.yaw;
       }
-      if (a.view.conditions.includes("dying") && this.camp < 0.5 && !a.stage) {
-        // The dying ride in the wagons.
-        fig.root.visible = false;
-        fig.root.position.copy(target);
+      if (a.view.conditions.includes("dying") && this.camp < 0.5 && !a.stage && !a.leaving) {
+        // The dying ride on a cot at the tail of a wagon, under an opened canvas.
+        const wag = this.wagons[Math.min(this.wagons.length - 1, hostIdx.get(a.id) ?? 0)];
+        if (a.hosted !== wag) {
+          if (a.hosted) a.hosted.cot.remove(fig.root);
+          else this.group.remove(fig.root);
+          wag.cot.add(fig.root);
+          fig.root.position.set(0, 0, 0);
+          fig.yaw = fig.targetYaw = 0;
+          a.hosted = wag;
+        }
+        fig.root.visible = wag.root.visible;
+        fig.pose = "lie";
+        fig.speed = 0;
+        fig.targetYaw = 0;
+        fig.update(dt, time);
         continue;
       }
+      if (a.hosted) this.unhost(a);
       fig.root.visible = true;
       const cur = fig.root.position;
       const dx = target.x - cur.x;
       const dz = target.z - cur.z;
       const dist = Math.hypot(dx, dz);
       const inFormation = !a.stage && this.camp < 0.02 && this.rolling;
-      if (dist > 60) {
+      if (dist > 60 || (this.snapMembers && !a.stage)) {
         cur.set(target.x, 0, target.z);
       } else if (inFormation) {
         // Keep pace with the wagons exactly while on the move.
@@ -410,6 +531,7 @@ export class Train {
       }
       if (fig.torch) fig.torch.update(time);
     }
+    this.snapMembers = false;
     void this.embers;
   }
 

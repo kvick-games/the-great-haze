@@ -6,7 +6,7 @@
 import * as THREE from "three";
 import { Game } from "../../src/game/game.ts";
 import type { NewGameOptions } from "../../src/game/game.ts";
-import type { Pending, ResourceId, Screen, SceneInstance } from "../../src/game/types.ts";
+import type { Hud, Pending, ResourceId, Screen, SceneInstance } from "../../src/game/types.ts";
 import { ROSTER } from "../../src/game/content/roster.ts";
 import { sceneById } from "../../src/game/content/scenes/index.ts";
 import { ENEMIES } from "../../src/game/content/enemies.ts";
@@ -17,8 +17,8 @@ import type { ShotFn } from "./world/camera.ts";
 import { Figure } from "./world/actors.ts";
 import { lookFor } from "./world/looks.ts";
 import { CLEARINGS, U, terrainHeight } from "./world/regions.ts";
-import { WAGON_GAP, roadPoint } from "./world/train.ts";
-import { smoothstep } from "./world/noise.ts";
+import { WAGON_GAP, roadPoint, roadRight } from "./world/train.ts";
+import { clamp01, lerp, smoothstep } from "./world/noise.ts";
 import { disposeTree } from "./world/dispose.ts";
 import { Stage, buildArrival, buildStage, buildTown } from "./scenes/vignettes.ts";
 import { cross } from "./scenes/pieces.ts";
@@ -39,6 +39,7 @@ interface MemberSnap {
 interface Snap {
   members: Map<string, MemberSnap>;
   wagons: number;
+  condition: number;
   miles: number;
   gap: number;
   res: Record<ResourceId, number>;
@@ -232,6 +233,7 @@ export class Director {
     return {
       members,
       wagons: s.train.wagons,
+      condition: s.train.condition,
       miles: s.miles,
       gap: s.gap,
       res: { ...s.res },
@@ -304,12 +306,13 @@ export class Director {
     this.world.timeScale = 10;
   }
 
-  private syncWorldState(): void {
+  /** Apply the sim's state to the world. `dawn` shows the caravan as it was when the day began. */
+  private syncWorldState(dawn?: Snap): void {
     const s = this.s;
     const hud = this.game!.hud();
     const tr = this.world.train;
-    tr.setWagons(hud.wagons, hud.condition / 100);
-    tr.torchesLit = s.res.torches > 0;
+    tr.applyHud(dawn ? { ...hud, res: dawn.res, condition: dawn.condition, wagons: dawn.wagons } : hud);
+    tr.torchesLit = (dawn ? dawn.res.torches : s.res.torches) > 0;
     this.world.gapMiles = s.gap;
     this.world.target.reach = smoothstep(600, 830, s.miles);
   }
@@ -823,12 +826,14 @@ export class Director {
     const tr = w.train;
     const inst = this.sceneInst()!;
     this.retireStage();
-    const adv = Math.min(this.expectedDayUnits() * 0.12, 1.3 * U);
+    const adv = Math.min(this.expectedDayUnits() * 0.12, 8);
     const st = buildStage(inst.id);
     this.stage = st;
     if (!st.atTrain) this.placeStage(st, tr.d + adv + st.stopShort + 8);
-    this.shot(this.shotRoadFront(), 1.2);
-    await tr.roll(tr.d + adv, 2.6);
+    w.sideOn = true;
+    this.shot(this.shotTravelApproach(), 6, true);
+    await tr.roll(tr.d + adv, 3.4, true);
+    w.sideOn = false;
     if (st.atTrain) this.placeStage(st, tr.d - WAGON_GAP);
     this.syncWorldState();
     void before;
@@ -1106,32 +1111,205 @@ export class Director {
     };
   }
 
+  // ------------------------------------------------------------------ travel days
+
+  /** The stretch of road the caravan occupies: tail of the last wagon to the lead ox. */
+  private span(): { tail: number; head: number; mid: number; len: number } {
+    const tr = this.world.train;
+    const tail = tr.d - (tr.wagonN - 1) * WAGON_GAP - 3;
+    const head = tr.d + 9;
+    return { tail, head, mid: (tail + head) / 2, len: head - tail };
+  }
+
+  /** How far a camera must stand to fit `width` world units across the screen. */
+  private fitDist(width: number, fov: number): number {
+    const aspect = this.world.rig.camera.aspect;
+    const minFov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(22)) / Math.max(0.2, aspect)));
+    const f = Math.max(fov, Math.min(85, minFov));
+    const h = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(f) / 2) * aspect);
+    return width / 2 / Math.tan(h / 2);
+  }
+
+  /** Wide side-on dolly: the whole caravan low in frame against the sky. */
+  private shotTravelWide(P: () => number): ShotFn {
+    return () => {
+      const { mid, len } = this.span();
+      const u = smoothstep(0, 1, P());
+      const fov = 40;
+      const dist = Math.min(90, this.fitDist(len + 12, fov));
+      const s = mid + lerp(-len * 0.14, len * 0.14, u);
+      const pos = roadPoint(s).add(roadRight(s).multiplyScalar(dist));
+      pos.y = 2.2 + u * 0.8;
+      const aim = roadPoint(mid + lerp(1.5, -1.5, u));
+      aim.y = 1.2 + dist * 0.13;
+      return { pos: lift(pos, 1.6), target: aim, fov };
+    };
+  }
+
+  /** A push along the line: the camera runs from the tail to the head, close enough to read faces. */
+  private shotTravelPush(P: () => number): ShotFn {
+    return () => {
+      const { tail, head } = this.span();
+      const u = smoothstep(0, 1, P());
+      const s = lerp(tail - 2, head - 5, u);
+      const pos = roadPoint(s).add(roadRight(s).multiplyScalar(9.5));
+      pos.y = 1.9 + u * 0.5;
+      const aim = roadPoint(s + 5.5);
+      aim.y = 1.6;
+      return { pos: lift(pos, 1.3), target: aim, fov: 48 };
+    };
+  }
+
+  /** Low, close, on one wheel in the rut. */
+  private shotTravelWheels(P: () => number, wagon: number): ShotFn {
+    return () => {
+      const tr = this.world.train;
+      const u = clamp01(P());
+      const sw = tr.d - wagon * WAGON_GAP;
+      const s = sw + lerp(4, -2.2, u);
+      const pos = roadPoint(s).add(roadRight(s).multiplyScalar(4.6));
+      pos.y = 0.55;
+      const aim = roadPoint(sw - 1.35 + lerp(1.6, -0.8, u)).add(roadRight(sw).multiplyScalar(0.9));
+      aim.y = 0.75;
+      return { pos: lift(pos, 0.4), target: aim, fov: 52 };
+    };
+  }
+
+  /** From ahead of the oxen, looking back down the line at the wall of red. */
+  private shotTravelBack(P: () => number): ShotFn {
+    return () => {
+      const tr = this.world.train;
+      const u = smoothstep(0, 1, P());
+      const s = tr.d + lerp(15, 19, u);
+      const pos = roadPoint(s).add(roadRight(s).multiplyScalar(3.3));
+      pos.y = 1.5 + u * 0.4;
+      const aim = roadPoint(tr.d - 80);
+      aim.y = 7.5 + u * 2;
+      return { pos: lift(pos, 1.2), target: aim, fov: 50 };
+    };
+  }
+
+  /** Front three-quarter as the light goes: the line of torches coming on. */
+  private shotTravelDusk(P: () => number): ShotFn {
+    return () => {
+      const { mid, len } = this.span();
+      const u = smoothstep(0, 1, P());
+      const s = this.world.train.d + lerp(24, 15, u);
+      const dist = Math.min(40, this.fitDist(len * 0.5, 44));
+      const pos = roadPoint(s).add(roadRight(s).multiplyScalar(dist * 0.55));
+      pos.y = 1.8 + u * 0.5;
+      const aim = roadPoint(mid);
+      aim.y = 2.4;
+      return { pos: lift(pos, 1.4), target: aim, fov: 44 };
+    };
+  }
+
+  /** A slow lateral track on the moving caravan, for the short approach to a road scene. */
+  private shotTravelApproach(): ShotFn {
+    return (t) => {
+      const { mid, len } = this.span();
+      const dist = Math.min(60, this.fitDist(len + 6, 42));
+      const s = mid + Math.sin(t * 0.2) * 2;
+      const pos = roadPoint(s).add(roadRight(s).multiplyScalar(dist));
+      pos.y = 2.4;
+      const aim = roadPoint(mid);
+      aim.y = 1.2 + dist * 0.11;
+      return { pos: lift(pos, 1.6), target: aim, fov: 42 };
+    };
+  }
+
+  /** One short line about the worst of it, when there is a worst of it. */
+  private travelCaption(hud: Hud): string {
+    const dying = hud.party.find((m) => m.conditions.includes("dying"));
+    if (dying) return `${dying.name.split(" ")[0]} rides at the back, and is not waking.`;
+    const worst = [...hud.party].sort((a, b) => a.health - b.health)[0];
+    if (worst && worst.health < 35) return `${worst.name.split(" ")[0]} can barely stand.`;
+    if (hud.res.rations < hud.party.length * 3) return "There is almost nothing left to eat.";
+    if (hud.condition < 40) return "The wagons groan at every rut.";
+    return "";
+  }
+
+  /** What the day took, read off the difference between dawn and now. */
+  private dayLosses(before: Snap): { crates: number; sack: boolean; wagon: boolean; ox: boolean } {
+    const hud = this.game!.hud();
+    const lost = (["ammo", "medicine", "spares", "veils", "rockets"] as const).reduce((n, k) => n + Math.max(0, before.res[k] - hud.res[k]), 0);
+    const ration = before.res.rations - hud.res.rations - hud.party.length * 3;
+    const hurt = this.s.party.some((m) => {
+      const b = before.members.get(m.id);
+      return !!b && m.health < b.health - 8;
+    });
+    return {
+      crates: Math.min(3, Math.ceil(lost / 3)),
+      sack: ration > 5,
+      wagon: before.wagons > hud.wagons,
+      ox: before.condition - hud.condition >= 5 || hurt,
+    };
+  }
+
   private async rollDay(next: Screen, before: Snap): Promise<void> {
     const w = this.world;
     const tr = w.train;
     const targetD = Math.max(tr.d, this.s.miles * U);
+    const hud = this.game!.hud();
+    // The caravan rolls out as it stood at dawn; what the day took shows up along the way.
+    this.syncWorldState(before);
     if (tr.camp > 0.5) {
       tr.breakCamp();
+      w.target.night = 0.45;
+      this.shot(this.shotRoadSide(), 1.2);
       await this.wait(1.8);
     }
-    const dist = targetD - tr.d;
-    const dur = Math.max(2.4, Math.min(5, dist / 30));
     this.retireStage();
+    const dist = targetD - tr.d;
     const covered = Math.round(this.s.miles - before.miles);
     const advanced = Math.round(this.s.today.hazeMiles);
+    const halt = dist < 1.5 * U;
+    // A travel day runs 8-14 seconds, longer for longer days and for a Haze that is close.
+    const closeHaze = w.haze.proximity > 0.3;
+    const dur = halt ? 6 : Math.min(14, Math.max(8, 7 + covered * 0.25) + (closeHaze ? 1 : 0));
     this.ui.say(covered > 0 ? `You cover ${covered} miles` : "The wagons do not move", `The Haze advances ${advanced} miles`);
-    this.shot(this.shotRoadFront(), 1);
-    this.syncWorldState();
+    const t0 = w.time;
+    const at = (a: number, b: number) => () => clamp01((w.time - t0 - a * dur) / ((b - a) * dur));
+    const anyDying = [...tr.members.values()].some((m) => m.view.conditions.includes("dying"));
+    const featured = anyDying ? tr.wagonN - 1 : this.s.day % tr.wagonN;
+    w.sideOn = true;
     const nightfall = w.tween(dur, (u) => {
-      w.target.night = 0.38 + 0.62 * smoothstep(0.45, 1, u);
+      w.target.night = 0.38 + 0.62 * smoothstep(0.2, 1, u);
     });
-    const midShot = this.wait(dur * 0.5).then(() => {
-      if (w.haze.proximity > 0.3) this.shot(this.shotHazeLook(), 0.9);
-      else this.shot(this.shotRoadSide(), 0.9);
-    });
-    await tr.roll(targetD, dur);
+    const losses = this.dayLosses(before);
+    // The plodding pace of the animals; the rest of a long day is skipped behind a cut.
+    const cruise = 2.4;
+    const warpBy = halt ? 0 : Math.max(0, dist - cruise * dur);
+    const rolled = halt ? Promise.resolve() : tr.roll(tr.d + (dist - warpBy), dur, true);
+    this.shot(this.shotTravelWide(at(0, 0.27)), 6, true);
+    await w.wait(dur * 0.27);
+    // Push along the line. The cut hides the jump ahead along the road.
+    if (warpBy > 0) tr.warp(warpBy);
+    const line = this.travelCaption(hud);
+    if (line) this.ui.say(line);
+    this.shot(this.shotTravelPush(at(0.27, 0.58)), 8, true);
+    await w.wait(dur * 0.08);
+    // The day's losses happen where the camera is looking.
+    tr.applyHud(hud);
+    const tailAt = tr.wagons[Math.max(0, tr.wagonN - 1)].tailWorld();
+    const back = new THREE.Vector3(Math.sin(tr.wagons[0].root.rotation.y), 0, Math.cos(tr.wagons[0].root.rotation.y)).multiplyScalar(-1);
+    for (let i = 0; i < losses.crates; i++) tr.pops.drop(i % 2 ? "barrel" : "crate", tailAt.clone().add(new THREE.Vector3(0, i * 0.5, 0)), back);
+    if (losses.sack) tr.pops.drop("sack", tailAt.clone(), back);
+    if (losses.crates || losses.sack) this.audio.sfx("thud");
+    await w.wait(dur * 0.14);
+    if (losses.ox) {
+      tr.oxen[0][0].stumble();
+      tr.oxen[0][1].stumble();
+      this.audio.sfx("thud");
+    }
+    await w.wait(dur * 0.08);
+    this.shot(this.shotTravelWheels(at(0.58, 0.78), featured), 8, true);
+    if (line) this.ui.say("");
+    await w.wait(dur * 0.2);
+    this.shot(closeHaze ? this.shotTravelBack(at(0.78, 1)) : this.shotTravelDusk(at(0.78, 1)), 8, true);
+    await rolled;
     await nightfall;
-    await midShot;
+    w.sideOn = false;
     if (next.kind === "ending") return;
     // Make camp. A ring of torches burns if any were spent tonight.
     const lines = next.lines.join(" ");
@@ -1145,6 +1323,17 @@ export class Director {
     await this.wait(2.1);
     this.syncParty(before);
     this.syncWorldState();
+  }
+
+  /** Tools: frame a travel shot on the standing caravan (kind: wide, push, wheels, back, dusk). */
+  previewTravelShot(kind: string, u = 0.5, wagon = 0): void {
+    const w = this.world;
+    w.train.camp = w.train.campTarget = 0;
+    w.sideOn = true;
+    const P = () => u;
+    const fn =
+      kind === "push" ? this.shotTravelPush(P) : kind === "wheels" ? this.shotTravelWheels(P, wagon) : kind === "back" ? this.shotTravelBack(P) : kind === "dusk" ? this.shotTravelDusk(P) : this.shotTravelWide(P);
+    this.shot(fn, 6, true);
   }
 
   private async dawn(): Promise<void> {
