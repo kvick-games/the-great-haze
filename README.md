@@ -6,31 +6,40 @@ Repository: https://github.com/kvick-games/the-great-haze
 
 ## Status
 
-The game's **simulation core is implemented and tested**; it is not yet bound to Dream Engine.
+The game is **playable in 3D in the browser** and its **simulation core is implemented and tested**. It is not yet
+bound to Dream Engine.
 
 - `src/game/`: engine-agnostic core: the Haze clock, supplies and stores, the party (nerve, trust, bonds, traits),
   strangers with hidden truth and tells, combat, quarrels, crises, landmarks, and four endings.
 - `src/game/content/`: the road as data: 60+ scenes, enemies, a 12-person roster, and recruitable strangers.
-- `tools/`: a terminal player, bot strategies, a balance simulator, and a project-manifest validator.
-- `test/`: 33 tests, including invariants over many seeded runs and measurements of the design pillars.
+- `web/`: a real-time 3D client (Three.js) that drives the same core. The wagon train rolls across six regions
+  under a sky that bleeds as the Haze closes in; every event is staged on the road; camps, combat, deaths, and
+  recruits all play out on screen. See "The 3D client" in [docs/design.md](docs/design.md).
+- `tools/`: a terminal player, bot strategies, a balance simulator, a browser driver, and a project-manifest validator.
+- `test/`: 46 tests, including invariants over many seeded runs and measurements of the design pillars.
 
-Not done: Dream Engine scenes, prefabs, UI, audio, and art. `src/main.ts` is still the placeholder, and the
-core has not been registered in `project.dtproject`. See [docs/design.md](docs/design.md) for the reasons and the
-intended integration shape.
+Not done: the Dream Engine binding (scenes, prefabs, Studio-authored UI). `src/main.ts` is still the placeholder,
+and nothing new is registered in `project.dtproject`. The browser client is a prototype presentation layer; see the
+design doc for why and for the intended integration shape.
 
 ## Play it now
 
-Requires Node 22+. No runtime dependencies; `npm install` only fetches TypeScript and Node typings for checks.
+Requires Node 22+.
 
 ```
 npm install
-npm run play -- --seed 7 --name Jo --background nurse     # play in the terminal
-npm test                                                   # 33 tests, ~6s
-npm run typecheck
+npm run web:build                                          # writes dist/the-great-haze.html; open it in a browser
+npm run play -- --seed 7 --name Jo --background nurse     # or play in the terminal
+npm test                                                   # 46 tests, ~7s
+npm run typecheck                                          # core, tools, and the web client
 npm run validate                                           # manifests + referenced paths
+npm run web:smoke                                          # plays the 3D build in headless Chromium
 npm run simulate -- 200 normal                             # balance report across bot strategies
 npm run trace -- cautious 7                                # full transcript of one bot run
 ```
+
+The built page loads Three.js from jsDelivr at the pinned version; `npm run web:build -- --inline` bundles it for
+offline use. Add `#fast` to the page URL to run cinematics at high speed.
 
 ## The game in one paragraph
 
@@ -52,7 +61,8 @@ Dream Engine is currently supplied by the local ecosystem checkout at
 
 See [the original game brief](docs/game-brief.md). The name is provisional.
 Party relationships, scarce supplies, combat, deceptive encounters, genuine requests for help,
-and pressure from the approaching Great Haze are requested pillars, not implemented features.
+and pressure from the approaching Great Haze were the requested pillars; all of them are now implemented in the
+core and staged by the 3D client.
 
 ## Preservation
 

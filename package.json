@@ -2,18 +2,24 @@
   "name": "the-great-haze",
   "private": true,
   "version": "0.1.0",
-  "description": "Simulation core, content, and dev harnesses for The Great Haze (Dream Engine project).",
+  "description": "The Great Haze: simulation core, a 3D browser client, and dev harnesses (Dream Engine project).",
   "type": "module",
   "scripts": {
     "test": "node --disable-warning=ExperimentalWarning --test \"test/**/*.test.ts\"",
-    "typecheck": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json && tsc -p web/tsconfig.json",
     "play": "node --disable-warning=ExperimentalWarning tools/play.ts",
     "simulate": "node --disable-warning=ExperimentalWarning tools/simulate.ts",
     "validate": "node --disable-warning=ExperimentalWarning tools/validate-project.ts",
-    "trace": "node --disable-warning=ExperimentalWarning tools/trace.ts"
+    "trace": "node --disable-warning=ExperimentalWarning tools/trace.ts",
+    "web:build": "node --disable-warning=ExperimentalWarning web/build.ts",
+    "web:smoke": "npm run web:build && W=800 H=450 node tools/web-play.mjs artifacts/web-smoke 16"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/three": "0.186.0",
+    "esbuild": "^0.28.2",
+    "playwright-core": "^1.63.0",
+    "three": "0.186.1",
     "typescript": "^5.9.0"
   }
 }

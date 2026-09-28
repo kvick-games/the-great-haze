@@ -147,6 +147,38 @@ Current targets on **Exodus (normal)**, measured by bots: careful play wins abou
 never-stop about 0%, random about 0%. On **Ash Reckoning (dire)** careful play wins roughly 13%. The bots read the
 scene data directly so they are *better* at reading tells than a human will be; treat these as upper bounds.
 
+## The 3D client
+
+`web/` renders the game in real time with Three.js. It adds no rules: every decision still goes through
+`Game.choose`, and the client turns the difference between the state before and after into something you watch.
+
+- **The world** (`web/src/world/`). A procedural road through six regions, each with its own relief, ground colour,
+  and scenery (wheat and east-facing scarecrows, drowned trees and reeds, white salt, dark pines, boulders and
+  mountains, green grass under a clearing sky). Terrain is displaced in a shader using the same noise as the JS that
+  places props, so nothing floats. Nothing is downloaded but Three.js itself: every model, texture, and sound is
+  built in code.
+- **The sky is the gauge.** Far from the Haze it is the night-camp concept: stars, teal cloud, red stains bleeding
+  in. As the gap closes the stains spread, the moon reddens, fog turns crimson toward the east, blood pools in the
+  wheel ruts, ash falls, and the Haze itself rises as a churning wall behind the train at a distance driven by the
+  sim's gap.
+- **Fire is the light.** The wagons carry torch poles, the wagon-master walks ahead with a torch like the road
+  concept, and the camp is ringed with torches when the sim says torches were burned that night. A small pool of real
+  lights is handed to whichever flames matter most to the current shot.
+- **The director** (`web/src/director.ts`) plays each transition: breaking and making camp, rolling to the next
+  event, a stranger staged on the road ahead (a man against a milestone, a toll rope with two armed men, the Vigil
+  kneeling toward the Haze, a Hollowed procession on the ridge), recruits walking over from where they stood, the
+  dead falling and a grave marker left behind, crises staged in camp, combat with enemies coming out of the dark
+  and each tactic's effect (muzzle flashes, thrown fire, a signal rocket that turns the sky white), and the four
+  endings.
+- **The UI** (`web/src/ui/`) is a thin HTML layer: a HUD with a gauge showing the red band chasing your wagon, a
+  party dock, and each decision as a card. The camera frames the subject in the part of the screen the card leaves
+  free. Cinematics letterbox the screen and can be skipped with a click or Space.
+- **Sound** is procedural WebAudio: wind, a drone that swells as the Haze closes, wheel rumble, fire crackle, and
+  synthesized gunshots, fire, rockets, and a tolling bell.
+
+Quality scales down automatically on phones and small screens (no bloom, fewer props); the camera button in the
+HUD switches modes.
+
 ## Architecture and Dream Engine
 
 `src/game/` is a **pure, engine-agnostic simulation core**: no rendering, input, or engine imports, plain-JSON state,
@@ -162,7 +194,12 @@ game.serialize();                // exact save; Game.restore() resumes with no d
 Content (scenes, enemies, roster, regions) is **data** under `src/game/content/`, interpreted by a small effect
 engine. Adding a scene means writing an object, not code (see below).
 
-A terminal harness (`npm run play`) and the bots (`tools/`) drive the same API.
+A terminal harness (`npm run play`), the bots (`tools/`), and the 3D browser client (`web/`) all drive the same API.
+
+The browser client exists because the Dream Engine checkout was not available to the session that built it and the
+brief asked for something visual and 3D. It is a prototype presentation layer, not a second engine: the rules stay
+in `src/game/`, and the director's job (turn a before/after state diff into staging) is the part to carry over when
+the game is bound to Dream Engine.
 
 **Not done, by design:** nothing here creates Dream Engine scenes, prefabs, components, or UI, and `src/main.ts` is
 still the placeholder. The engine's authoring contract (in the Dreamatron ecosystem checkout) was not available while
