@@ -116,6 +116,41 @@ noise, so no single one is proof; but they follow a **shared grammar** that an a
 Each option resolves differently by truth. There is almost always a **half-measure** (leave water and a ration;
 send one scout alone) with a small cost and a small reward, because the pillar is a spectrum, not a switch.
 
+## Dialogue
+
+The cards say little; people talk. A scene has an `intro` of one or two short lines plus `talk`, 2 to 6 spoken
+lines. Outcomes carry their own `talk` (1 to 4 lines) and a one-line `text`. A `Line` is
+`{ who, text, mood?, gesture?, alt? }`, at most 14 words. `who` is `leader`, `actor`, `other`, `a`, `b`, `observer`,
+`by` (whoever made the option's check), `stranger`, `role:<role>` or `npc:<id>`. Lines are resolved when the screen
+is built (`SpokenLine`: speaker id, name, kind `member | stranger | npc`, text, mood, gesture), never at authoring
+time, so a dead speaker is skipped and outcome lines are resolved before effects apply. `alt` swaps the words when the
+speaker has a trait (`kind`, `paranoid`, `coward`...). Without a `mood` a member's is derived from traits and nerve.
+Moods: calm, afraid, angry, pleading, sly, grieving, cold. Gestures: none, point, beckon, shrug, raise-hands, clutch,
+kneel, draw-weapon, offer, turn-away. These sets are exported from `src/game/talk-types.ts` for the client to stage.
+
+## Checks
+
+An option may carry `check: { kind, dc, target?, exclude? }`. Kinds: `persuade`, `calm`, `haggle`, `talk-down`
+(charisma) and `spot`, `see-lie` (perception). The best-suited living member rolls d20 + bonus against the dc,
+chosen deterministically by bonus (ties go to party order). Bonus comes from role and trait tables in
+`checks.ts`, steady or frayed nerve, weakness, wounds, fever and fog. The seeded RNG makes it reproducible. The result
+is `{ kind, by, byName, target, roll, bonus, dc, success, reason }` and appears on the outcome screen; option previews
+show who will roll and their bonus. Outcomes filter with `needs: "success" | "fail"`.
+
+## Tells, structured
+
+Each tell has `id`, `text`, `shows`, `p`, `severity` (1 subtle, 2 clear, 3 unmistakable) and `say`, what the observer
+mutters aloud. Every scene has a genuine and a trap tell of severity 2 or more, so honest people give themselves away
+as clearly as liars. **Look closer** is a `spot` check whose margin decides how many tells surface. **Read them**
+is a `see-lie` check that yields a verdict (genuine, trap or unsure), which can be wrong on a bad roll.
+
+## Named companions
+
+`content/npcs.ts` defines nine people: role, traits, one-line backstory, a `Look` (build, height, age, skin, hair,
+clothing, palette, prop, marks, summary, meant for portraits and video prompts), join lines, and a complication scene.
+Recruiting one makes them an ordinary party member (`recruited`, flag `joined:<id>`). After `afterDays` their
+complication fires once as a scene where they speak. Some strangers recur, gated on `met:<id>` flags.
+
 ## Combat
 
 Short and expensive. Each round takes half an hour off the road and each tactic burns something: **fire** (shot, one

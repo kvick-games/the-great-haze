@@ -1,6 +1,6 @@
 // Tiny builders so scene content reads like prose rather than plumbing.
 
-import type { Cond, Effect, EndingKind, Outcome, ResourceId, Who } from "../types.ts";
+import type { Cond, Effect, EndingKind, Line, Outcome, ResourceId, Who } from "../types.ts";
 import type { Amount } from "../rng.ts";
 
 export const fx = {
@@ -29,6 +29,11 @@ export const fx = {
   leave: (who: Who, cause: string, takes?: Partial<Record<ResourceId, number>>): Effect => ({ t: "leave", who, cause, takes }),
   end: (kind: EndingKind, headline: string, text: string[]): Effect => ({ t: "end", kind, headline, text }),
 };
+
+/** An outcome with spoken lines, optionally gated on the option's check. */
+export function t(out: Outcome, talk: Line[], needs?: "success" | "fail"): Outcome {
+  return needs ? { ...out, talk, needs } : { ...out, talk };
+}
 
 /** Build an outcome: text, effects, optional weight. */
 export function o(text: string, effects: Effect[] = [], weight = 1, mods?: { if: Cond; add: number }[]): Outcome {

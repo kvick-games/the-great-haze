@@ -7,6 +7,7 @@ import { applyEffects } from "../src/game/effects.ts";
 import { planTravel, mph, expectedHazeMiles, baseHazeMiles } from "../src/game/travel.ts";
 import { buildScene, doLook, resolveOption } from "../src/game/scenes.ts";
 import { pickRoadScene } from "../src/game/events.ts";
+import { sceneById } from "../src/game/content/scenes/index.ts";
 import { living, leader, cargoUsed, cargoCap } from "../src/game/party.ts";
 import { TUNING } from "../src/game/tuning.ts";
 
@@ -243,16 +244,7 @@ test("losing a wagon trims the cargo it carried", () => {
 });
 
 test("tells are fair: they lean toward the truth, and frayed nerves misread", () => {
-  const GENUINE = new Set([
-    "The wound is days old. Someone bandaged it with care once, and then stopped being able to.",
-    "He will not meet your eyes when you offer water. It looks like shame, not scheming.",
-    "He asks for water first. Not food, not physic, not a ride.",
-  ]);
-  const TRAP = new Set([
-    "His boots are clean. Wherever he limped from, it was not far.",
-    "Fresh wheel ruts lead off the road into the trees behind him.",
-    "His eyes are not on the wagons. They are on your rifles.",
-  ]);
+  const shows = new Map(sceneById("wounded-traveler")!.tells!.map((t) => [t.text, t.shows]));
   const seen = { genuine: { pointsGenuine: 0, pointsTrap: 0 }, trap: { pointsGenuine: 0, pointsTrap: 0 } };
   const phantoms = { steady: 0, frayed: 0 };
   for (let i = 0; i < 400; i++) {
@@ -265,8 +257,8 @@ test("tells are fair: they lean toward the truth, and frayed nerves misread", ()
         if (t.phantom) phantoms[mood]++;
         if (mood !== "steady") continue;
         const bucket = seen[inst.truth as "genuine" | "trap"];
-        if (GENUINE.has(t.text)) bucket.pointsGenuine++;
-        if (TRAP.has(t.text)) bucket.pointsTrap++;
+        if (shows.get(t.text) === "genuine") bucket.pointsGenuine++;
+        if (shows.get(t.text) === "trap") bucket.pointsTrap++;
       }
     }
   }
@@ -493,20 +485,29 @@ test("physic eases the Haze's mark but never removes it; ambient healing skips t
   assert.equal(d.dying, true);
 });
 
-test("a paranoid companion notices as much as a scout", () => {
-  const g = underway(31);
-  const s = g.s;
-  for (const m of s.party) {
-    m.role = "mechanic";
-    m.traits = ["stoic", "kind"];
-    m.nerve = 100;
+
+test("a paranoid companion notices more than a plain one, and a scout more than either", () => {
+  const seen = { plain: 0, paranoid: 0, scout: 0 };
+  for (let seed = 0; seed < 300; seed++) {
+    for (const kind of ["plain", "paranoid", "scout"] as const) {
+      const g = underway(500 + seed);
+      const s = g.s;
+      for (const m of s.party) {
+        m.role = "mechanic";
+        m.traits = ["stoic", "kind"];
+        m.nerve = 70;
+      }
+      if (kind === "paranoid") s.party[2].traits = ["paranoid", "kind"];
+      if (kind === "scout") s.party[2].role = "scout";
+      const inst = buildScene(env(g), { t: "scene", id: "wounded-traveler" });
+      inst.tells = ["a", "b", "c", "d", "e"].map((text) => ({ text, revealed: false }));
+      inst.observer = s.party[2].id;
+      doLook(env(g), inst);
+      seen[kind] += inst.tells.filter((t) => t.revealed).length;
+    }
   }
-  s.party[2].traits = ["paranoid", "kind"];
-  const inst = buildScene(env(g), { t: "scene", id: "wounded-traveler" });
-  inst.tells = ["a", "b", "c", "d", "e"].map((text) => ({ text, revealed: false }));
-  inst.observer = s.party[2].id;
-  doLook(env(g), inst);
-  assert.equal(inst.tells.filter((t) => t.revealed).length, 2);
+  assert.ok(seen.paranoid > seen.plain * 1.15, `paranoid ${seen.paranoid} vs plain ${seen.plain}`);
+  assert.ok(seen.scout > seen.paranoid, `scout ${seen.scout} vs paranoid ${seen.paranoid}`);
 });
 
 test("store input is validated", () => {

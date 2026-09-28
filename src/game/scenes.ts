@@ -1,8 +1,13 @@
 // The scene engine: a scene is a moment that demands a decision. Hazards,
 // strangers, finds, disputes and crises all run through here. Content lives in
 // content/scenes; this file interprets it.
+//
+// Scenes talk. The setup is a handful of spoken lines (`talk`), tells are noticed
+// by a named observer who says so aloud, and options can carry a seeded
+// charisma or perception check made by whoever in the party is best at it.
 
 import type {
+  CheckResult,
   GameState,
   Member,
   OptionDef,
@@ -11,14 +16,21 @@ import type {
   SceneDef,
   SceneInstance,
   ScreenOption,
+  SpokenLine,
+  TellView,
   Truth,
 } from "./types.ts";
 import type { Env } from "./effects.ts";
 import { allConds, applyEffects, evalCond, fillText, resolveWho } from "./effects.ts";
-import { able, bond, byId, firstName, hasTrait, living, perception } from "./party.ts";
+import { bond, byId, firstName, living, perception } from "./party.ts";
 import { hoursToMiles } from "./travel.ts";
 import { sceneById } from "./content/scenes/index.ts";
+import { npcById } from "./content/npcs.ts";
 import { ITEMS } from "./tuning.ts";
+import { checkBonus, checkerFor, pickChecker, rollCheck } from "./checks.ts";
+import type { Checker } from "./checks.ts";
+import { sayLines, tellLine, verdictLine } from "./dialogue.ts";
+import type { TalkCtx, Verdict } from "./dialogue.ts";
 
 export function requireScene(id: string): SceneDef {
   const def = sceneById(id);
@@ -26,28 +38,26 @@ export function requireScene(id: string): SceneDef {
   return def;
 }
 
+/** Difficulty of noticing a tell, and of reading a face. */
+export const SPOT_DC = 8;
+export const READ_DC = 10;
+const SAID_KEEP = 4;
+
 // ---------------------------------------------------------------------------
 // Building a scene instance
 // ---------------------------------------------------------------------------
 
-function observerScore(m: Member): number {
-  let score = 0;
-  if (m.role === "scout") score += 2;
-  if (hasTrait(m, "paranoid")) score += 1.5;
-  if (hasTrait(m, "veteran")) score += 0.5;
-  if (m.role === "medic") score += 0.25;
-  return score + perception(m) * 0.5;
-}
-
 export function bestObserver(s: GameState): Member | undefined {
-  const pool = able(s);
-  if (!pool.length) return undefined;
-  return pool.reduce((best, m) => (observerScore(m) > observerScore(best) ? m : best));
+  return pickChecker(s, "spot")?.member;
 }
 
-function observerBonus(m: Member | undefined): number {
-  if (!m) return 0;
-  return (m.role === "scout" ? 2 : 0) + (hasTrait(m, "paranoid") ? 1.5 : 0);
+function targetOf(def: SceneDef): string {
+  return def.stranger?.name ?? def.title;
+}
+
+/** A clean pass reveals one tell; a pass by a wide margin (or a natural 20) reveals two. */
+function spotCount(check: CheckResult): number {
+  return check.roll === 20 || check.roll + check.bonus - check.dc >= 6 ? 2 : 1;
 }
 
 function pickPair(env: Env, def: SceneDef): { a: string; b: string } | undefined {
@@ -73,9 +83,16 @@ export function hasPair(env: Env, def: SceneDef): boolean {
   return false;
 }
 
+function pushSaid(inst: SceneInstance, lines: (SpokenLine | undefined)[]): void {
+  const said = inst.said ?? (inst.said = []);
+  for (const l of lines) if (l) said.push(l);
+  if (said.length > SAID_KEEP) said.splice(0, said.length - SAID_KEEP);
+}
+
 function revealTells(env: Env, inst: SceneInstance, count: number): string[] {
   const observer = byId(env.s, inst.observer);
   const def = requireScene(inst.id);
+  const ctx: TalkCtx = { def, inst };
   const hidden = inst.tells.filter((t) => !t.revealed);
   const order = env.rng.shuffle(hidden);
   const shown: string[] = [];
@@ -88,16 +105,25 @@ function revealTells(env: Env, inst: SceneInstance, count: number): string[] {
       const wrongTruth: Truth = inst.truth === "genuine" ? "trap" : "genuine";
       const decoys = (def.tells ?? []).filter((d) => d.shows === wrongTruth);
       if (decoys.length) {
-        t.text = env.rng.pick(decoys).text;
+        const decoy = env.rng.pick(decoys);
+        t.text = decoy.text;
+        t.say = decoy.say;
+        t.severity = decoy.severity ?? 2;
         t.phantom = true;
       } else {
         t.text = "For a moment {other}'s face is one you used to know.";
+        t.say = undefined;
         t.phantom = true;
       }
+    }
+    if (t.say) {
+      const shows = (def.tells ?? []).find((d) => d.text === t.text)?.shows ?? "noise";
+      pushSaid(inst, [tellLine(env, ctx, t.say, shows)]);
     }
   }
   return shown;
 }
+
 
 export function buildScene(env: Env, item: Extract<QueueItem, { t: "scene" }>): SceneInstance {
   const def = requireScene(item.id);
@@ -130,15 +156,20 @@ export function buildScene(env: Env, item: Extract<QueueItem, { t: "scene" }>): 
   env.bind.other = inst.other;
   if (def.tells && def.tells.length) {
     inst.truth = env.rng.chance(def.genuineOdds ?? 0.5) ? "genuine" : "trap";
-    for (const t of def.tells) {
+    def.tells.forEach((t, i) => {
       let present = false;
       if (t.shows === inst.truth) present = env.rng.chance(t.p ?? 0.65);
       else if (t.shows === "noise") present = env.rng.chance(t.p ?? 0.4);
-      if (present) inst.tells.push({ text: t.text, revealed: false });
+      if (present) inst.tells.push({ id: t.id ?? `${def.id}:${i}`, text: t.text, revealed: false, severity: t.severity ?? 2, say: t.say });
+    });
+    const watcher = pickChecker(s, "spot");
+    inst.observer = watcher?.member.id;
+    if (inst.tells.length && watcher) {
+      // The first impression is a perception check like any other.
+      const check = rollCheck(env.rng, "spot", SPOT_DC, targetOf(def), watcher);
+      inst.check = check;
+      if (check.success) revealTells(env, inst, spotCount(check));
     }
-    const observer = bestObserver(s);
-    inst.observer = observer?.id;
-    if (inst.tells.length && env.rng.chance(0.75)) revealTells(env, inst, observerBonus(observer) >= 1.5 ? 2 : 1);
   }
   return inst;
 }
@@ -180,6 +211,13 @@ function canAfford(env: Env, cost: OptionDef["cost"]): boolean {
 
 export const MAX_LOOKS = 3;
 
+/** Who would make an option's check, without rolling anything. */
+export function checkerForOption(env: Env, opt: OptionDef): Checker | undefined {
+  if (!opt.check) return undefined;
+  const exclude = (opt.check.exclude ?? []).flatMap((w) => resolveWho(env, w)).map((m) => m.id);
+  return pickChecker(env.s, opt.check.kind, exclude);
+}
+
 export function sceneOptions(env: Env, inst: SceneInstance): ScreenOption[] {
   const def = requireScene(inst.id);
   env.bind = bindFor(inst);
@@ -195,6 +233,18 @@ export function sceneOptions(env: Env, inst: SceneInstance): ScreenOption[] {
         : `${observer ? firstName(observer) : "Someone"} studies the scene. Takes an hour; the Haze does not wait.`,
       hours: 1,
       disabled: spent ? "Nothing more to see." : undefined,
+      check: observer && !spent ? { kind: "spot", by: observer.id, byName: firstName(observer), bonus: checkBonus("spot", observer).bonus } : undefined,
+    });
+    const reader = pickChecker(env.s, "see-lie");
+    out.push({
+      id: "read",
+      label: "Have someone read them",
+      hint: inst.read
+        ? "You have already tried."
+        : `${reader ? firstName(reader.member) : "Someone"} watches their face and hands. Half an hour.`,
+      hours: 0.5,
+      disabled: inst.read ? "You have already tried." : undefined,
+      check: reader && !inst.read ? { kind: "see-lie", by: reader.member.id, byName: firstName(reader.member), bonus: reader.bonus } : undefined,
     });
   }
   for (const opt of def.options) {
@@ -206,6 +256,8 @@ export function sceneOptions(env: Env, inst: SceneInstance): ScreenOption[] {
     }
     const requiresOk = allConds(env, opt.requires);
     const affordable = canAfford(env, opt.cost);
+    const checker = checkerForOption(optEnv, opt);
+    if (checker) optEnv.bind.by = checker.member.id;
     const hint = [fillText(optEnv, opt.hint ?? ""), costText(opt.cost)].filter(Boolean).join(" ");
     out.push({
       id: opt.id,
@@ -213,17 +265,29 @@ export function sceneOptions(env: Env, inst: SceneInstance): ScreenOption[] {
       hint: hint || undefined,
       hours: optionHours(env, opt),
       disabled: !requiresOk ? (opt.why ?? "Not available.") : !affordable ? "You cannot afford it." : undefined,
+      check: checker && opt.check ? { kind: opt.check.kind, by: checker.member.id, byName: firstName(checker.member), bonus: checker.bonus } : undefined,
     });
   }
   return out;
 }
 
-export function sceneText(env: Env, inst: SceneInstance): { lines: string[]; observations: string[] } {
+export interface SceneText {
+  lines: string[];
+  observations: string[];
+  talk: SpokenLine[];
+  tells: TellView[];
+}
+
+export function sceneText(env: Env, inst: SceneInstance): SceneText {
   const def = requireScene(inst.id);
   env.bind = bindFor(inst);
+  const ctx: TalkCtx = { def, inst };
+  const seen = inst.tells.filter((t) => t.revealed);
   return {
     lines: def.intro.map((l) => fillText(env, l)),
-    observations: inst.tells.filter((t) => t.revealed).map((t) => fillText(env, t.text)),
+    observations: seen.map((t) => fillText(env, t.text)),
+    talk: [...sayLines(env, ctx, def.talk), ...(inst.said ?? [])],
+    tells: seen.map((t, i) => ({ id: t.id ?? `${def.id}:${i}`, text: fillText(env, t.text), visible: true, severity: t.severity ?? 2 })),
   };
 }
 
@@ -246,21 +310,63 @@ export interface SceneResult {
   notes: string[];
   /** True if the scene stays open (a "look closer"). */
   stay: boolean;
+  talk: SpokenLine[];
+  check?: CheckResult;
 }
 
 export function doLook(env: Env, inst: SceneInstance): void {
   env.bind = bindFor(inst);
   env.s.today.hoursUsed += 1;
   env.s.stats.hoursLost += 1;
-  const observer = byId(env.s, inst.observer);
+  const def = requireScene(inst.id);
+  const watcher = byId(env.s, inst.observer);
+  const by = watcher?.alive && !watcher.dying ? checkerFor(watcher, "spot") : pickChecker(env.s, "spot");
   inst.looks++;
   const hadHidden = inst.tells.some((t) => !t.revealed);
-  const bonus = observerBonus(observer) >= 1.5 ? 2 : 1;
-  const shown = revealTells(env, inst, bonus);
-  const who = observer ? firstName(observer) : "Someone";
-  if (shown.length) inst.note = `${who} watches for an hour and notices more.`;
-  else if (hadHidden) inst.note = `${who} watches for an hour.`;
-  else inst.note = `${who} watches for an hour and sees nothing new. That may itself mean something.`;
+  const who = by ? firstName(by.member) : "Someone";
+  if (!by) {
+    inst.note = "Nobody is in a state to look.";
+    return;
+  }
+  const check = rollCheck(env.rng, "spot", SPOT_DC, targetOf(def), by);
+  inst.check = check;
+  if (check.success && hadHidden) {
+    revealTells(env, inst, spotCount(check));
+    inst.note = `${who} watches for an hour and notices more.`;
+  } else if (check.success) {
+    inst.note = `${who} watches for an hour and sees nothing new. That may itself mean something.`;
+  } else {
+    inst.note = `${who} watches for an hour and is no wiser.`;
+  }
+}
+
+/** Half an hour reading a face: a see-a-lie check. It can fail, and a bad enough fumble reads it backwards. */
+export function doRead(env: Env, inst: SceneInstance): void {
+  env.bind = bindFor(inst);
+  env.s.today.hoursUsed += 0.5;
+  env.s.stats.hoursLost += 0.5;
+  const def = requireScene(inst.id);
+  const ctx: TalkCtx = { def, inst };
+  const reader = pickChecker(env.s, "see-lie");
+  inst.read = "unsure";
+  if (!reader) {
+    inst.note = "Nobody is in a state to judge.";
+    return;
+  }
+  env.bind.by = reader.member.id;
+  const check = rollCheck(env.rng, "see-lie", READ_DC, targetOf(def), reader);
+  inst.check = check;
+  let verdict: Verdict = "unsure";
+  if (inst.truth !== "none") {
+    if (check.success) verdict = inst.truth;
+    else if (check.roll === 1) verdict = inst.truth === "genuine" ? "trap" : "genuine"; // a bad misread
+  }
+  inst.read = verdict;
+  const line = verdictLine(env, ctx, verdict, env.rng.next());
+  pushSaid(inst, [line]);
+  if (check.success && inst.tells.some((t) => !t.revealed)) revealTells(env, inst, 1);
+  const who = firstName(reader.member);
+  inst.note = check.success ? `${who} looks at them a long time.` : `${who} looks at them a long time and is not certain.`;
 }
 
 export function resolveOption(env: Env, inst: SceneInstance, optionId: string): SceneResult {
@@ -304,22 +410,43 @@ export function resolveOption(env: Env, inst: SceneInstance, optionId: string): 
     if (inst.truth === "genuine") s.stats.genuineTurnedAway++;
     else if (inst.truth === "trap") s.stats.trapsAvoided++;
   }
+  // A dialogue check happens before the outcome is chosen and steers which outcomes are possible.
+  let check: CheckResult | undefined;
+  if (opt.check) {
+    const checker = checkerForOption(env, opt);
+    if (checker) {
+      check = rollCheck(env.rng, opt.check.kind, opt.check.dc, opt.check.target ?? targetOf(def), checker);
+      env.bind.by = checker.member.id;
+    }
+  }
   const group = opt.results[inst.truth === "none" ? "any" : inst.truth] ?? opt.results.any;
   if (!group || !group.length) throw new Error(`Scene ${def.id} option ${opt.id} has no outcome for truth ${inst.truth}`);
-  const outcome = pickOutcome(env, group);
+  const passed = check?.success ?? false;
+  const fitting = group.filter((o) => !o.needs || (o.needs === "success") === passed);
+  const outcome = pickOutcome(env, fitting.length ? fitting : group);
   const text = fillText(env, outcome.text);
+  // Speakers are resolved before effects land, so someone the outcome kills still gets their last words.
+  const ctx: TalkCtx = { def, inst };
+  const talk = sayLines(env, ctx, outcome.talk);
+  const aboard = new Set(s.party.map((m) => m.id));
   applyEffects(env, outcome.fx, notes);
-  return { title: fillText(env, def.title), lines: [text], notes, stay: false };
+  for (const m of s.party) {
+    if (aboard.has(m.id)) continue;
+    const npc = npcById(m.id);
+    if (npc) talk.push(...sayLines(env, ctx, npc.join));
+  }
+  return { title: fillText(env, def.title), lines: [text], notes, stay: false, talk, check };
 }
 
 export function optionAvailable(env: Env, inst: SceneInstance, optionId: string): string | null {
   const def = requireScene(inst.id);
   env.bind = bindFor(inst);
-  if (optionId === "look") return def.tells && def.tells.length && inst.looks < MAX_LOOKS ? null : "Nothing more to see.";
+  const hasTells = Boolean(def.tells && def.tells.length);
+  if (optionId === "look") return hasTells && inst.looks < MAX_LOOKS ? null : "Nothing more to see.";
+  if (optionId === "read") return hasTells && !inst.read ? null : "You have already tried.";
   const opt = def.options.find((o) => o.id === optionId);
   if (!opt) return "Unknown option.";
   if (!allConds(env, opt.requires)) return opt.why ?? "Not available.";
   if (!canAfford(env, opt.cost)) return "You cannot afford it.";
   return null;
 }
-
