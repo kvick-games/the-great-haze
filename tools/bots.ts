@@ -230,14 +230,25 @@ export function chooseOption(game: Game, strategy: Strategy, rand: Rand): string
         if (def.id === "toll-gate") return opts.find((o) => o.id === "pay")?.id ?? cheapest(opts).id;
         return cheapest(opts).id;
       }
+      // Companion beats: hear them out with the gentlest answer on offer.
+      if (def.id.startsWith("npc-")) return chooseCompanion(opts);
       // Hazards, finds, haze events, oddities, respites.
       if (strategy === "reckless") return cheapest(opts).id;
       if (def.kind === "respite") return opts[0].id;
+      // Talk it down when the best voice in the party has the edge and it costs little.
+      const talk = opts.find((o) => o.check && o.check.bonus >= 3 && (o.hours ?? 0) <= 2 && !o.disabled);
+      if (talk && strategy !== "random") return talk.id;
       return chooseHazard(game, opts);
     }
     default:
       throw new Error(`Bot cannot handle ${p.kind}`);
   }
+}
+
+/** A named companion's trouble: prefer a spoken answer (a check) if their friends can carry it, else the quickest. */
+function chooseCompanion(opts: ScreenOption[]): string {
+  const spoken = opts.find((o) => o.check && o.check.bonus >= 2);
+  return (spoken ?? cheapest(opts)).id;
 }
 
 function chooseHazard(game: Game, opts: ScreenOption[]): string {
