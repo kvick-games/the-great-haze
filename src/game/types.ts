@@ -240,7 +240,7 @@ export interface SceneInstance {
   /** The last perception check made in this scene. */
   check?: CheckResult;
   /** Whether a member has already tried to read the stranger. */
-  read?: boolean;
+  read?: "genuine" | "trap" | "unsure";
   /** Who is doing the watching. */
   observer?: string;
   /** Flavor from the most recent "look closer". */

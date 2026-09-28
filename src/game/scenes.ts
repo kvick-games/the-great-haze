@@ -348,7 +348,7 @@ export function doRead(env: Env, inst: SceneInstance): void {
   const def = requireScene(inst.id);
   const ctx: TalkCtx = { def, inst };
   const reader = pickChecker(env.s, "see-lie");
-  inst.read = true;
+  inst.read = "unsure";
   if (!reader) {
     inst.note = "Nobody is in a state to judge.";
     return;
@@ -361,6 +361,7 @@ export function doRead(env: Env, inst: SceneInstance): void {
     if (check.success) verdict = inst.truth;
     else if (check.roll === 1) verdict = inst.truth === "genuine" ? "trap" : "genuine"; // a bad misread
   }
+  inst.read = verdict;
   const line = verdictLine(env, ctx, verdict, env.rng.next());
   pushSaid(inst, [line]);
   if (check.success && inst.tells.some((t) => !t.revealed)) revealTells(env, inst, 1);

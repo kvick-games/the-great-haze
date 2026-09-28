@@ -111,7 +111,7 @@ function pickHelp(options: ScreenOption[], state: GameState, prefer: "full" | "c
   const p = state.pending;
   if (p.kind !== "scene") return undefined;
   const def = sceneById(p.scene.id)!;
-  const helps = def.options.filter((o) => o.tag === "help").map((o) => o.id);
+  const helps = def.options.filter((o) => o.tag === "help" && !o.check).map((o) => o.id);
   const avail = options.filter((o) => enabled(o) && helps.includes(o.id));
   if (!avail.length) return undefined;
   return prefer === "full" ? avail[0] : avail[avail.length - 1];
@@ -121,12 +121,12 @@ function pickRefuse(options: ScreenOption[], state: GameState): ScreenOption | u
   const p = state.pending;
   if (p.kind !== "scene") return undefined;
   const def = sceneById(p.scene.id)!;
-  const refuse = def.options.filter((o) => o.tag === "refuse").map((o) => o.id);
+  const refuse = def.options.filter((o) => o.tag === "refuse" && !o.check).map((o) => o.id);
   return options.find((o) => enabled(o) && refuse.includes(o.id));
 }
 
 function cheapest(options: ScreenOption[]): ScreenOption {
-  const avail = options.filter((o) => enabled(o) && o.id !== "look");
+  const avail = options.filter((o) => enabled(o) && o.id !== "look" && o.id !== "read");
   return avail.reduce((best, o) => ((o.hours ?? 0) < (best.hours ?? 0) ? o : best), avail[0]);
 }
 
@@ -268,9 +268,13 @@ function chooseStranger(game: Game, strategy: Strategy, options: ScreenOption[],
 
   // Cautious: look, weigh the tells, act.
   const look = opts.find((o) => o.id === "look");
-  const score = tellScore(s, sceneId);
+  const read = opts.find((o) => o.id === "read");
+  const verdict = p.scene.read === "genuine" ? 1 : p.scene.read === "trap" ? -1 : 0;
+  const score = tellScore(s, sceneId) + verdict;
   const wantLooks = s.gap < 25 ? 1 : 2;
   if (look && p.scene.looks < wantLooks && Math.abs(score) < 2) return "look";
+  // Still torn after looking: have the best judge of people read their face.
+  if (read && s.gap >= 25 && score === 0) return "read";
   const kind = living(s).length;
   const flush = s.res.rations > kind * 10;
   if (score >= 1) return pickHelp(opts, s, "full")?.id ?? pickRefuse(opts, s)?.id ?? cheapest(opts).id;
