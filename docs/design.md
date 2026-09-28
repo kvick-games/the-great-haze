@@ -133,6 +133,20 @@ real toll), Last Lamp (store, brutal prices), and **the Gate of the Blue Reach**
 **The Gate** refuses anyone the Haze has marked. Bring them in with a lie and risk everyone, leave them in the
 "quarantine ward" and go in without them, or stay outside together. Four endings, all earned by the run.
 
+## Route map, forks and maps that lie
+
+The road is a graph (`src/game/routes.ts`): nodes (towns, outposts, landmarks, forks) joined by edges that carry
+terrain, true length and true hazards. Four forks (Crow's Parting, Black Water, Glass Cross, Spine Foot) offer two
+or three routes each; every route sums to about 840 miles, so the choice is about risk, speed, wear and supplies.
+`s.miles` stays the total odometer; region comes from the current edge or node (`hud.regionId`).
+
+Forks are a `fork` screen with choices `route:<edgeId>`. The player only knows a rough default map (lengths rounded,
+no danger) unless they buy one at the starting store or an outpost. Maps have hidden accuracy (faithful, careless,
+misleading) and fair clues: the seller's tells, a too-good price, a party member who notices. Where the land differs
+from the believed map, a reveal scene plays partway along the edge and costs hours or supplies; a warning map makes
+it cheaper (`route:prepared`). Wrong beliefs are recorded and shown in `hud.map`. All of it is seeded and saves
+round-trip; old saves are migrated onto the main road by odometer.
+
 ## Tuning
 
 Every knob is in `src/game/tuning.ts` and `src/game/world.ts`. Use the simulator rather than guessing:

@@ -37,6 +37,7 @@ const KICKER: Partial<Record<Screen["kind"], string>> = {
   result: "What it cost",
   combat: "Combat",
   arrival: "Landmark",
+  fork: "The road divides",
   store: "Market",
   plan: "Morning",
   setup: "Cinder Ford, the last night",

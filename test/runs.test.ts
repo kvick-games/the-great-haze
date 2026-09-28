@@ -160,7 +160,7 @@ test("coverage: the bots see nearly all of the content", () => {
   }
   const missing = SCENES.filter((d) => !seen.has(d.id)).map((d) => d.id);
   assert.ok(missing.length <= Math.ceil(SCENES.length * 0.1), `bots never reached: ${missing.join(", ")}`);
-  for (const id of ["ninefold-crossing", "glass-fork", "saint-ambrose", "toll-gate", "the-gate", "last-stand", "turned", "breakdown", "deserter"]) {
+  for (const id of ["ninefold-crossing", "route-harrow", "route-tunnel", "saint-ambrose", "toll-gate", "the-gate", "last-stand", "turned", "breakdown", "deserter"]) {
     assert.ok(seen.has(id), `scene ${id} was never reached`);
   }
 });

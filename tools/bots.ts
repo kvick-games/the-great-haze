@@ -10,6 +10,8 @@ import { sceneById } from "../src/game/content/scenes/index.ts";
 import { ENEMIES } from "../src/game/content/enemies.ts";
 import { living } from "../src/game/party.ts";
 import { PACES } from "../src/game/tuning.ts";
+import { MAP_OFFERS } from "../src/game/routes.ts";
+import { offerClues, priceOf } from "../src/game/map.ts";
 
 export type Strategy = "random" | "reckless" | "samaritan" | "cautious";
 
@@ -69,7 +71,23 @@ const SHOPPING: Record<Strategy, [ResourceId, number][]> = {
   ],
 };
 
+/** Careful players read the seller and the paper; they buy a map only if the signs are good. */
+function buyMaps(game: Game, strategy: Strategy): void {
+  if (strategy !== "cautious") return;
+  const s = game.s;
+  const p = s.pending;
+  if (p.kind !== "store") return;
+  for (const offer of MAP_OFFERS.filter((o) => o.storeId === p.storeId)) {
+    if (s.route.maps.some((m) => m.id === offer.id)) continue;
+    let score = 0;
+    for (const c of offerClues(s, offer)) score += c.shows === "faithful" ? 1 : c.shows === "misleading" ? -1 : c.shows === "careless" ? -0.5 : 0;
+    const price = priceOf(s.seed, offer);
+    if (score > 0 && price <= s.scrip * 0.2) game.choose(`buymap:${offer.id}`);
+  }
+}
+
 export function shop(game: Game, strategy: Strategy, first: boolean): void {
+  buyMaps(game, strategy);
   if (first) {
     for (const [item, target] of SHOPPING[strategy]) {
       const have = game.s.res[item];
@@ -158,6 +176,18 @@ export function chooseOption(game: Game, strategy: Strategy, rand: Rand): string
     }
     case "result":
       return "continue";
+    case "fork": {
+      const routes = screen.fork!.routes;
+      if (strategy === "reckless") return routes.reduce((best, r) => (r.miles < best.miles ? r : best)).id;
+      if (strategy === "samaritan") return routes[0].id;
+      // Cautious: trust what the map says about danger; with no word, the main road beats the unknown.
+      const score = (r: (typeof routes)[number], i: number) => (r.danger ?? (i === 0 ? 2 : 3)) * 4 + (r.twist === "known" ? 3 : 0) + r.miles / 8;
+      let best = 0;
+      routes.forEach((r, i) => {
+        if (score(r, i) < score(routes[best], best)) best = i;
+      });
+      return routes[best].id;
+    }
     case "plan": {
       // Tend the dying first.
       const dying = opts.find((o) => o.id.endsWith(":dying"));

@@ -1062,6 +1062,11 @@ export class Director {
       case "result":
         if (next.title.startsWith("Nightfall")) return this.rollDay(next, before);
         return;
+      case "fork":
+        this.retireStage();
+        this.shot(this.shotCamp(), 1.3);
+        this.audio.sfx("bell");
+        return;
       case "plan":
         return this.dawn();
       case "arrival": {

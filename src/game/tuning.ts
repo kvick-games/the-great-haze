@@ -206,6 +206,8 @@ export interface StoreDef {
   buyback: number;
   /** A crooked keeper delivers only this fraction of rations and physic until the scales are checked. */
   rigged?: number;
+  /** Hours a stop here costs; defaults to TUNING.storeHours. */
+  stopHours?: number;
   /** The fair-play hint that something is off. */
   tell?: string;
 }

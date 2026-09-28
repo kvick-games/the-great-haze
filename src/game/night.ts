@@ -7,7 +7,7 @@ import { changeNerve, exposeToFog, heal, hurt, killMember } from "./effects.ts";
 import { finish } from "./ending.ts";
 import { firstName, hasRole, hasTrait, living, avgNerve } from "./party.ts";
 import { PACES, RATIONS, TUNING, zoneOf } from "./tuning.ts";
-import { regionAt } from "./world.ts";
+import { regionOf } from "./map.ts";
 
 export interface NightReport {
   lines: string[];
@@ -74,7 +74,7 @@ export function processNight(env: Env, restQuality: number): NightReport {
       for (const m of living(s)) changeNerve(m, -4);
       notes.push("Everyone: -4 nerve (a dark camp)");
       if (rng.chance(0.4)) {
-        const region = regionAt(s.miles);
+        const region = regionOf(s);
         const enemy = region.id === "pines" || region.id === "fen" ? "haze-hounds" : "hollowed-single";
         crises.push({ t: "combat", enemy });
       }
