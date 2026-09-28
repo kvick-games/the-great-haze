@@ -83,6 +83,7 @@ export class World {
   timeScale = 1;
   quality: number;
   private tick: ((dt: number) => void)[] = [];
+  private late: ((dt: number) => void)[] = [];
   private clearKey = "";
 
   constructor(canvas: HTMLCanvasElement, quality: number) {
@@ -145,6 +146,14 @@ export class World {
     this.tick.push(fn);
     return () => {
       this.tick = this.tick.filter((f) => f !== fn);
+    };
+  }
+
+  /** Callbacks that run each frame after the camera has moved, before drawing (screen-pinned captions). */
+  onLate(fn: (dt: number) => void): () => void {
+    this.late.push(fn);
+    return () => {
+      this.late = this.late.filter((f) => f !== fn);
     };
   }
 
@@ -253,6 +262,10 @@ export class World {
 
     const cam = this.rig.camera;
     this.rig.update(dt, this.time);
+    if (this.late.length) {
+      cam.updateMatrixWorld(true);
+      for (const fn of this.late.slice()) fn(dt);
+    }
     this.sky.follow(cam);
     const trainZ = -this.train.d;
     const rearZ = this.train.rear().z;

@@ -218,6 +218,58 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .fatal h2 { font-family: var(--f-display); font-weight: 400; font-size: 30px; margin: 0; }
 .fatal p { color: var(--paper-dim); max-width: 52ch; margin: 0 auto; }
 
+/* ---- dialogue: captions over the speaker, roll readout, notice marker ---- */
+#ui > .speech-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.bubble { position: absolute; left: 0; top: 0; width: max-content; max-width: min(370px, calc(100vw - 24px)); min-width: 168px; padding: 9px 14px 8px; background: rgba(9, 8, 12, 0.92); border: 1px solid var(--edge, var(--line-strong)); border-radius: 3px; box-shadow: 0 12px 38px rgba(0, 0, 0, 0.65); opacity: 0; transform: translateY(6px); transition: opacity 0.18s, transform 0.18s; --edge: rgba(235, 226, 209, 0.34); }
+.bubble.on { opacity: 1; transform: none; }
+.bubble::after { content: ""; position: absolute; left: var(--tail, 50%); bottom: -7px; width: 12px; height: 12px; margin-left: -6px; background: rgba(9, 8, 12, 0.98); border-right: 1px solid var(--edge); border-bottom: 1px solid var(--edge); transform: rotate(45deg); }
+.bubble.flip::after { bottom: auto; top: -7px; transform: rotate(225deg); }
+.b-name { font-family: var(--f-type); font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--paper-dim); }
+.k-stranger .b-name { color: var(--ember); }
+.k-npc .b-name { color: #d8c48a; }
+.b-text { font-family: var(--f-body); font-size: 18px; line-height: 1.38; margin-top: 2px; text-wrap: pretty; }
+.b-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 5px; }
+.b-dots { display: flex; gap: 4px; }
+.b-dots i { width: 5px; height: 5px; border-radius: 50%; background: rgba(235, 226, 209, 0.2); }
+.b-dots i.done { background: rgba(235, 226, 209, 0.5); }
+.b-dots i.on { background: var(--ember); }
+.b-hint { font-family: var(--f-type); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--paper-faint); transition: opacity 0.2s; }
+.bubble.on .b-hint { animation: nudge 1.4s ease-in-out infinite; }
+@keyframes nudge { 50% { color: var(--paper-dim); } }
+.m-afraid { --edge: #8fa9c4; } .m-afraid .b-text { font-style: italic; color: #d8e4ee; }
+.m-angry { --edge: var(--bad); } .m-angry .b-text { font-weight: 600; color: #ffe1d6; }
+.m-pleading { --edge: var(--warn); } .m-pleading .b-text { font-style: italic; }
+.m-sly { --edge: #86c496; } .m-sly .b-text { color: #e2ead8; }
+.m-grieving { --edge: #a496bd; } .m-grieving .b-text { color: var(--paper-dim); }
+.m-cold { --edge: #7f8c99; } .m-cold .b-text { letter-spacing: 0.02em; color: #d9dde0; }
+
+.rollcard { position: absolute; left: 0; top: 0; min-width: 190px; padding: 8px 14px 9px; background: rgba(9, 8, 12, 0.94); border: 1px solid rgba(235, 226, 209, 0.4); border-radius: 3px; box-shadow: 0 12px 38px rgba(0, 0, 0, 0.65); text-align: center; opacity: 0; transform: translateY(6px) scale(0.96); transition: opacity 0.18s, transform 0.2s, border-color 0.3s; font-family: var(--f-type); }
+.rollcard.on { opacity: 1; transform: none; }
+.r-head { font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--paper-faint); white-space: nowrap; }
+.r-body { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 5px 0 3px; }
+.r-die { width: 46px; height: 46px; display: grid; place-items: center; font-family: var(--f-display); font-size: 27px; line-height: 1; border: 2px solid var(--paper-dim); border-radius: 7px; color: var(--paper); }
+.rollcard.rolling .r-die { animation: tumble 0.16s linear infinite; }
+@keyframes tumble { 25% { transform: rotate(-9deg) translateY(-2px); } 75% { transform: rotate(9deg) translateY(2px); } }
+.r-sum { font-size: 15px; color: var(--paper); white-space: nowrap; }
+.r-verdict { font-size: 12.5px; letter-spacing: 0.16em; text-transform: uppercase; }
+.rollcard.win { border-color: var(--good); } .rollcard.win .r-verdict, .rollcard.win .r-die { color: var(--good); border-color: var(--good); }
+.rollcard.lose { border-color: var(--bad); } .rollcard.lose .r-verdict, .rollcard.lose .r-die { color: var(--bad); border-color: var(--bad); }
+.rollcard.win .r-die, .rollcard.lose .r-die { animation: land 0.3s cubic-bezier(0.3, 1.6, 0.5, 1); }
+@keyframes land { from { transform: scale(1.5); } }
+
+.notice-pin { position: absolute; left: 0; top: 0; display: inline-flex; align-items: center; gap: 7px; padding: 3px 10px 3px 8px; background: rgba(9, 8, 12, 0.82); border: 1px solid var(--ember); border-radius: 12px; font-family: var(--f-type); font-size: 11px; letter-spacing: 0.13em; text-transform: uppercase; color: #f3dcc0; opacity: 0; pointer-events: none; transition: opacity 0.4s; white-space: nowrap; }
+.notice-pin.on { opacity: 1; }
+.notice-pin i { width: 7px; height: 7px; border-radius: 50%; background: var(--ember); box-shadow: 0 0 10px var(--ember); animation: pulse 1.6s ease-in-out infinite; }
+
+.is-talk .cine .bar { height: 4.5vh; }
+.is-talk .cine .skip { opacity: 1; transform: none; }
+.is-talk .hud { opacity: 0.7; }
+.tx-toggle { position: absolute; right: 12px; top: 10px; min-width: 34px; height: 24px; padding: 0 8px; background: transparent; border: 1px solid var(--line); border-radius: 12px; color: var(--paper-faint); font-family: var(--f-type); font-size: 13px; letter-spacing: 0.15em; line-height: 1; }
+.tx-toggle:hover, .tx-toggle[aria-expanded="true"] { color: var(--paper); border-color: var(--ember); }
+.card .talk.folded { display: none; }
+.opt .rolls { display: block; margin-top: 3px; font-family: var(--f-type); font-size: 11px; letter-spacing: 0.04em; color: #d8c48a; }
+.opt .rolls b { font-weight: 400; color: var(--paper); }
+
 /* ---- narrow screens ---- */
 @media (max-width: 860px) {
   .hud { grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; padding: 8px 12px 16px; }

@@ -23,6 +23,8 @@ import { disposeTree } from "./world/dispose.ts";
 import { Stage, buildArrival, buildStage, buildTown } from "./scenes/vignettes.ts";
 import { cross } from "./scenes/pieces.ts";
 import { CombatStage } from "./scenes/combat.ts";
+import { Conversation } from "./talk/conversation.ts";
+import type { Plan } from "./talk/conversation.ts";
 import type { UI } from "./ui/ui.ts";
 import type { Audio } from "./audio.ts";
 
@@ -74,12 +76,37 @@ export class Director {
   private focused: string | null = null;
   busy = false;
   private campAngle = 0.8;
+  /** Spoken dialogue, rolls and tells staged in the world. */
+  readonly conv: Conversation;
 
   constructor(world: World, ui: UI, audio: Audio) {
     this.world = world;
     this.ui = ui;
     this.audio = audio;
     world.onTick((dt) => this.tick(dt));
+    this.conv = new Conversation({
+      world,
+      ui,
+      audio,
+      fast: FAST,
+      stage: () => this.stage,
+      inst: () => (this.game ? this.sceneInst() : null),
+      spot: () => this.guestSpot(),
+      // Dialogue cuts do not replace the scene's own shot: restoreShot returns to it.
+      shot: (fn, rate, cut) => this.world.rig.set(fn, rate, cut),
+      restoreShot: () => this.baseShot && this.world.rig.set(this.baseShot, 1.6),
+    });
+  }
+
+  /** Where a stranger with no staged place stands: just past the lead ox, or across the fire. */
+  private guestSpot(): { pos: THREE.Vector3; face: THREE.Vector3 } {
+    const tr = this.world.train;
+    if (tr.camp > 0.5) {
+      const c = tr.campCenter;
+      return { pos: c.clone().add(new THREE.Vector3(-6.5, 0, 4.5)), face: c.clone() };
+    }
+    const ahead = roadPoint(tr.d + 16);
+    return { pos: ahead.clone().add(roadRight(tr.d + 16).multiplyScalar(-2.4)), face: roadPoint(tr.d + 8.5) };
   }
 
   // ------------------------------------------------------------------ loop
@@ -303,7 +330,14 @@ export class Director {
 
   skip(): void {
     if (!this.busy) return;
+    // In a conversation a click goes on to the next line rather than fast-forwarding time.
+    if (this.conv.active) return this.conv.advance();
     this.world.timeScale = 10;
+  }
+
+  /** Leave a conversation, playing none of what is left. */
+  skipTalk(): void {
+    this.conv.skipAll();
   }
 
   /** Apply the sim's state to the world. `dawn` shows the caravan as it was when the day began. */
@@ -430,6 +464,7 @@ export class Director {
 
   private disposeAll(): void {
     const w = this.world;
+    this.conv.reset();
     if (this.stage) this.drop(this.stage);
     this.stage = null;
     for (const s of this.oldStages) this.drop(s);
@@ -613,6 +648,9 @@ export class Director {
   async act(id: string): Promise<void> {
     if (!this.game || this.busy) return;
     const prev = this.screen!;
+    // A fresh choice starts a fresh conversation; looking closer keeps the scene's people.
+    if (id === "look") this.conv.clearTells();
+    else this.conv.reset();
     const before = this.snapshot();
     const prevPending: Pending = JSON.parse(JSON.stringify(this.s.pending)) as Pending;
     let next: Screen;
@@ -650,11 +688,41 @@ export class Director {
   /** Show the current card, labelled for the time of day, and frame the view around it. */
   present(): void {
     const s = this.screen!;
+    const plan = this.conv.plan(s);
+    if (plan?.staged) {
+      void this.talkThen(s, plan);
+      return;
+    }
+    // Someone who cannot be staged: the card carries the words instead.
+    if (plan) this.conv.markSeen(s);
+    this.showCard(s, plan ? "open" : this.conv.handles(s) ? "folded" : "open");
+  }
+
+  /** Play a screen's dialogue in the world, then bring up the card. */
+  private async talkThen(s: Screen, plan: Plan): Promise<void> {
+    const game = this.game;
+    this.busy = true;
+    this.ui.refreshHud(s);
+    this.ui.setTalk(true);
+    try {
+      await this.conv.run(s, plan);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      this.ui.setTalk(false);
+      this.busy = false;
+    }
+    if (this.game === game && this.screen === s) this.showCard(s, "folded");
+  }
+
+  private showCard(s: Screen, talk: "open" | "folded"): void {
     const night = this.game && !this.roadPhase() && this.s.day > 0;
     if (s.kind === "scene" && night) this.ui.kickerOverride = "In the night";
     else if (s.kind === "result" && s.title.startsWith("Nightfall")) this.ui.kickerOverride = "Nightfall";
-    this.ui.render(s);
+    this.ui.render(s, talk);
     this.frameForUI();
+    if (s.kind === "scene") this.conv.showTells(s);
+    else this.conv.clearTells();
     this.world.keyStrength = s.kind === "scene" || s.kind === "combat" || s.kind === "arrival" || s.kind === "store" || s.kind === "setup" ? 1 : 0.45;
   }
 
@@ -880,6 +948,8 @@ export class Director {
     const tr = this.world.train;
     const def = sceneById(inst.id);
     const kind = def?.kind;
+    // The stranger on the road looks like the person the scene describes.
+    if (this.stage) this.conv.cast.dress(this.stage, inst);
     const base = night || tr.camp > 0.5 ? tr.campCenter.clone() : roadPoint(tr.d - 2).add(new THREE.Vector3(5, 0, 0));
     const fig = (id?: string) => (id ? tr.members.get(id) : undefined);
     if (kind === "dispute" && inst.a && inst.b) {

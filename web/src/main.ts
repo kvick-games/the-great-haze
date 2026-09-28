@@ -86,6 +86,7 @@ function boot(): void {
       ui.showTitle(null);
     },
     skip: () => director.skip(),
+    skipTalk: () => director.skipTalk(),
     focusMember: (id) => director.focusMember(id),
     hoverMember: (id) => director.highlight(id),
     toggleSound: () => audio.toggle(),

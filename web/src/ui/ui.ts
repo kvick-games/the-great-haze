@@ -8,6 +8,8 @@ import { BACKGROUNDS } from "../../../src/game/content/roster.ts";
 import { DIFFICULTY, PACES, RATIONS, TUNING } from "../../../src/game/tuning.ts";
 import { LANDMARKS } from "../../../src/game/world.ts";
 import { ICONS, add, h, svg } from "./dom.ts";
+import { Speech, checkLabel } from "./speech.ts";
+import type { Insets } from "./speech.ts";
 
 export interface UIHandlers {
   choose(id: string): void;
@@ -16,6 +18,8 @@ export interface UIHandlers {
   resume(): void;
   abandon(): void;
   skip(): void;
+  /** Leave the dialogue without playing the rest of it. */
+  skipTalk(): void;
   focusMember(id: string | null): void;
   hoverMember(id: string | null): void;
   toggleSound(): boolean;
@@ -53,12 +57,16 @@ export class UI {
   private toastEl: HTMLElement;
   private title: HTMLElement | null = null;
   private tooltip: HTMLElement;
+  readonly speech: Speech;
+  private talking = false;
+  private talkMode: "open" | "folded" = "open";
   private handlers: UIHandlers;
   private hot: string[] = [];
   private busy = false;
   private confirmAbandon = false;
   private soundOn = false;
   kickerOverride: string | null = null;
+  private skipBtn: HTMLButtonElement;
 
   constructor(root: HTMLElement, handlers: UIHandlers) {
     this.root = root;
@@ -70,15 +78,24 @@ export class UI {
     this.cine = add(root, h("div", "cine")).lastChild as HTMLElement;
     const skip = h("button", "skip", "Skip ▸▸");
     skip.type = "button";
-    skip.addEventListener("click", () => handlers.skip());
+    skip.addEventListener("click", () => (this.talking ? handlers.skipTalk() : handlers.skip()));
+    this.skipBtn = skip;
     add(this.cine, h("div", "bar top"), h("div", "bar bottom"), skip);
     this.caption = add(root, h("div", "caption")).lastChild as HTMLElement;
     this.toastEl = add(root, h("div", "toast")).lastChild as HTMLElement;
     this.tooltip = add(root, h("div", "tip")).lastChild as HTMLElement;
+    this.speech = new Speech(root);
     document.addEventListener("keydown", (ev) => {
       if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
       const t = (ev.target as HTMLElement | null)?.tagName;
       if (t === "INPUT" || t === "TEXTAREA") return;
+      if (this.talking && (ev.key === " " || ev.key === "Enter" || ev.key === "Escape")) {
+        // Space and Enter go on to the next line; Escape leaves the conversation.
+        ev.preventDefault();
+        if (ev.key === "Escape") handlers.skipTalk();
+        else handlers.skip();
+        return;
+      }
       if (this.busy && (ev.key === " " || ev.key === "Enter" || ev.key === "Escape")) {
         ev.preventDefault();
         handlers.skip();
@@ -96,6 +113,32 @@ export class UI {
   setBusy(on: boolean): void {
     this.busy = on;
     this.root.classList.toggle("is-busy", on);
+  }
+
+  /** Dialogue mode: the card and party step aside, captions appear over the speakers. */
+  setTalk(on: boolean): void {
+    this.talking = on;
+    if (on) this.hot = [];
+    this.root.classList.toggle("is-talk", on);
+    this.skipBtn.textContent = on ? "Skip talk ▸▸" : "Skip ▸▸";
+    this.setBusy(on);
+  }
+
+  /** Margins that keep an on-screen caption clear of the HUD, letterbox, card and party dock. */
+  insets(kind: "talk" | "card"): Insets {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const hudBottom = this.hud.getBoundingClientRect().bottom - this.hud.getBoundingClientRect().height * 0.18;
+    const top = Math.max(8, hudBottom + 4);
+    if (kind === "talk") return { top, bottom: H * 0.045 + 10, side: 12 };
+    const card = this.card.getBoundingClientRect();
+    const party = this.party.firstChild ? this.party.getBoundingClientRect() : null;
+    if (!this.card.firstChild) return { top, bottom: 12, side: 12 };
+    if (card.width > W * 0.8) {
+      const bottom = party && party.top < card.top ? party.top : card.top;
+      return { top, bottom: H - bottom + 6, side: 12 };
+    }
+    return { top, bottom: 12, side: party ? party.right + 10 : 12, right: W - card.left + 10 };
   }
 
   say(text: string, sub = ""): void {
@@ -215,8 +258,10 @@ export class UI {
 
   // ---------------------------------------------------------------- main render
 
-  render(s: Screen): void {
+  /** `talk` says what became of the spoken lines: "folded" when they were staged in 3D, "open" to read them here. */
+  render(s: Screen, talk: "open" | "folded" = "open"): void {
     this.hot = [];
+    this.talkMode = talk;
     this.renderHud(s.hud, s.kind);
     this.renderParty(s.hud.party, s.kind);
     this.renderCard(s);
@@ -350,6 +395,12 @@ export class UI {
     const body = h("span", "body");
     add(body, h("span", "lab", label));
     if (hint) add(body, h("span", "hint", hint));
+    if (opt?.check) {
+      const r = h("span", "rolls");
+      const sign = opt.check.bonus >= 0 ? "+" : "−";
+      add(r, h("b", "", opt.check.byName), document.createTextNode(` rolls · ${checkLabel(opt.check.kind)} ${sign}${Math.abs(opt.check.bonus)}`));
+      body.appendChild(r);
+    }
     const cost = h("span", "cost");
     if (opt?.hours && !opt.disabled) {
       cost.textContent = `${opt.hours}h`;
@@ -383,7 +434,7 @@ export class UI {
   /** Spoken lines as a plain transcript: speaker name and words. The 3D staging comes later. */
   private talk(s: Screen): HTMLElement | null {
     if (!s.talk.length && !s.check) return null;
-    const box = h("div", "talk");
+    const box = h("div", this.talkMode === "folded" ? "talk folded" : "talk");
     for (const l of s.talk) {
       const p = h("p", `${l.kind} ${l.mood}`);
       add(p, h("span", "who", l.name), document.createTextNode(l.text));
@@ -551,6 +602,21 @@ export class UI {
         if (n) c.appendChild(n);
         add(c, this.options(s.options, mph));
       }
+    }
+    // A staged conversation leaves only a small toggle; the words stay reachable for reading.
+    const tx = c.querySelector(".talk");
+    if (tx && this.talkMode === "folded") {
+      const t = h("button", "tx-toggle", "…");
+      t.type = "button";
+      t.title = "Show what was said";
+      t.setAttribute("aria-label", "Show what was said");
+      t.setAttribute("aria-expanded", "false");
+      t.addEventListener("click", () => {
+        const open = tx.classList.toggle("folded") === false;
+        t.setAttribute("aria-expanded", String(open));
+        c.scrollTop = open ? c.scrollHeight : 0;
+      });
+      c.appendChild(t);
     }
     c.scrollTop = 0;
   }

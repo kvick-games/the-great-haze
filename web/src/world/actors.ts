@@ -548,7 +548,7 @@ export class Figure {
     let headZ = 0;
     let headY = 0;
     let yawOff = 0;
-    if (!walking && pose !== "lie" && pose !== "sit") {
+    if (!walking && pose !== "lie") {
       this.gestureT += dt;
       const g = this.gesture;
       const gt = this.gestureT;
