@@ -89,10 +89,10 @@ export function rollDay(env: Env): QueueItem[] {
   }
 
   // A companion's complication surfaces a few days after they join (one per day at most).
-  const due = dueComplications(s).find((id) => !chosen.includes(id));
+  const due = dueComplications(s).find((c) => !chosen.includes(c.id));
   if (due) {
-    items.push({ t: "scene", id: due });
-    chosen.push(due);
+    items.push({ t: "scene", id: due.id, actor: due.actor });
+    chosen.push(due.id);
   }
 
   const pEncounter =Math.max(0.1, Math.min(0.9, region.encounter + pace.encounter));

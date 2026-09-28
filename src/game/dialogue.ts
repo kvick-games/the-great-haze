@@ -167,8 +167,8 @@ export function verdictLine(env: Env, ctx: TalkCtx, verdict: Verdict, pick: numb
 // ---------------------------------------------------------------------------
 
 /** Companions whose complication is due today: aboard for `afterDays`, not yet played. */
-export function dueComplications(s: GameState): string[] {
-  const out: string[] = [];
+export function dueComplications(s: GameState): { id: string; actor: string }[] {
+  const out: { id: string; actor: string }[] = [];
   for (const m of able(s)) {
     const def = m.recruited ? npcById(m.id) : undefined;
     if (!def) continue;
@@ -177,7 +177,7 @@ export function dueComplications(s: GameState): string[] {
     if (s.day - joined < def.complication.afterDays) continue;
     if (s.used.includes(def.complication.scene)) continue;
     if (!sceneById(def.complication.scene)) continue;
-    out.push(def.complication.scene);
+    out.push({ id: def.complication.scene, actor: m.id });
   }
   return out;
 }
