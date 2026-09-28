@@ -765,7 +765,7 @@ export class Director {
       tr.breakCamp();
       w.target.night = 0.45;
       this.shot(this.shotRoadSide(), 1.2);
-      await this.wait(2.4);
+      await this.wait(1.9);
     }
     w.target.night = 0.38;
     const pace = PACES[this.s.pace];
@@ -790,7 +790,7 @@ export class Director {
     this.stage = st;
     if (!st.atTrain) this.placeStage(st, tr.d + adv + st.stopShort + 8);
     this.shot(this.shotRoadFront(), 1.2);
-    await tr.roll(tr.d + adv, 3);
+    await tr.roll(tr.d + adv, 2.6);
     if (st.atTrain) this.placeStage(st, tr.d - WAGON_GAP);
     this.syncWorldState();
     void before;
@@ -833,7 +833,7 @@ export class Director {
     this.ui.say("");
     if (def?.kind === "stranger" || def?.kind === "haze" || def?.kind === "crisis" || def?.kind === "landmark" || def?.kind === "oddity") this.audio.sfx(def.kind === "landmark" ? "bell" : "sting");
     if (def?.kind === "haze") this.audio.sfx("whisper");
-    await this.wait(2.2);
+    await this.wait(1.7);
   }
 
   /** Arrange the party for scenes that are about the party itself. */
@@ -1073,10 +1073,10 @@ export class Director {
     const targetD = Math.max(tr.d, this.s.miles * U);
     if (tr.camp > 0.5) {
       tr.breakCamp();
-      await this.wait(2);
+      await this.wait(1.8);
     }
     const dist = targetD - tr.d;
-    const dur = Math.max(2.4, Math.min(6, dist / 28));
+    const dur = Math.max(2.4, Math.min(5, dist / 30));
     this.retireStage();
     const covered = Math.round(this.s.miles - before.miles);
     const advanced = Math.round(this.s.today.hazeMiles);
@@ -1103,7 +1103,7 @@ export class Director {
     this.campAngle = Math.random() * Math.PI * 2;
     this.shot(this.shotCamp(), 1.1);
     this.ui.say(`Nightfall, day ${this.s.day}`, tr.ringLit ? "The ring of torches is lit." : /no torches/.test(lines) ? "No torches to light. The dark comes right up to the wagons." : "");
-    await this.wait(2.6);
+    await this.wait(2.1);
     this.syncParty(before);
     this.syncWorldState();
   }
@@ -1116,7 +1116,7 @@ export class Director {
     this.syncWorldState();
     this.ui.say(`Day ${this.s.day}`, regionAt(this.s.miles).name);
     this.shot(this.shotCamp(19, 7), 0.9);
-    await this.wait(1.8);
+    await this.wait(1.4);
   }
 
   // ------------------------------------------------------------------ combat

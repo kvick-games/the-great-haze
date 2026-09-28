@@ -224,6 +224,23 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .title { grid-template-columns: minmax(0, 1fr); align-items: start; padding-top: 5vh; }
   .caption { bottom: 10vh; }
 }
+/* ---- short landscape (phones on their side, split windows): keep the scene in the middle ---- */
+@media (max-height: 560px) and (min-aspect-ratio: 13/10) {
+  .hud { padding: 6px 12px 12px; row-gap: 4px; }
+  .party { left: 8px; right: auto; bottom: 8px; width: 156px; max-height: calc(100% - 104px); grid-auto-flow: row; grid-auto-columns: auto; overflow-x: hidden; overflow-y: auto; align-content: end; gap: 4px; }
+  .party-head, .m-meta, .m-cond { display: none; }
+  .member { padding: 4px 7px 5px; }
+  .m-name { font-size: 14px; }
+  .card, .card.kind-store, .card.kind-ending { left: auto; right: 8px; bottom: 8px; width: min(430px, calc(100% - 184px)); max-height: calc(100% - 100px); padding: 12px 14px; font-size: 14.5px; }
+  .card.kind-setup { left: 8px; right: 8px; width: auto; }
+  .card h2 { font-size: 22px; margin-bottom: 8px; }
+  .lines { gap: 5px; }
+  .opts { margin-top: 10px; gap: 4px; }
+  .opt { padding: 7px 10px; }
+  .opt .hint { font-size: 13px; }
+  .caption { bottom: 9vh; }
+  .cap-main { font-size: clamp(20px, 3vw, 32px); }
+}
 @media (prefers-reduced-motion: reduce) {
   .card, .party, .caption, .cine .bar, .track .band, .track .wagon { transition: none; }
   .zone-upon, .toast.on { animation: none; }

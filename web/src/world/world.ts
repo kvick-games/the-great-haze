@@ -14,6 +14,7 @@ import { Haze } from "./haze.ts";
 import { Train } from "./train.ts";
 import { CameraRig } from "./camera.ts";
 import { Embers, Flashes, LightPool } from "./fx.ts";
+import { Birds } from "./birds.ts";
 import { CLEARINGS, U } from "./regions.ts";
 import { clamp01, damp, lerp, smoothstep } from "./noise.ts";
 
@@ -59,6 +60,7 @@ export class World {
   pool: LightPool;
   embers: Embers;
   flashes = new Flashes(3);
+  birds = new Birds();
   hemi: THREE.HemisphereLight;
   moon: THREE.DirectionalLight;
   rim: THREE.DirectionalLight;
@@ -107,7 +109,7 @@ export class World {
 
     this.pool = new LightPool(this.scene, quality > 0.5 ? 7 : 4);
     this.embers = new Embers(quality > 0.5 ? 400 : 160);
-    this.scene.add(this.embers.points, this.flashes.group);
+    this.scene.add(this.embers.points, this.flashes.group, this.birds.group);
     this.train = new Train(this.pool, this.embers);
     this.scene.add(this.train.group);
 
@@ -267,6 +269,7 @@ export class World {
     this.key.intensity = damp(this.key.intensity, this.keyStrength * (0.6 + this.mood.night * 0.6) * 9, 2, dt);
     this.embers.update(dt);
     this.flashes.update(dt);
+    this.birds.update(this.train.center(), this.time, dt, this.mood.haze);
     this.composer.render(dt);
   }
 
