@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "dreamatron.engine.project/1",
+  "version": 1,
+  "id": "the-great-haze",
+  "name": "The Great Haze",
+  "description": "Working title. A horror survival migration game beneath a blood-red sky. Initial project setup only.",
+  "startScene": "data/scenes/main.scene.json",
+  "moduleEntry": "src/main.ts",
+  "assetRoots": [
+    "assets",
+    "data"
+  ],
+  "prefabs": [],
+  "scenes": [
+    {
+      "id": "main",
+      "name": "Main",
+      "path": "data/scenes/main.scene.json"
+    }
+  ]
+}

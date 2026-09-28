@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+coverage/
+artifacts/
+*.log
+.env
+.env.*
+!.env.example
+*.lock/
+.dreamengine/studio-instance-*.json
+.dreamengine/cache/

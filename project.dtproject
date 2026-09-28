@@ -1,0 +1,103 @@
+{
+  "$schema": "https://dreamatron.dev/schemas/dtproject/v2",
+  "kind": "dreamatron.project",
+  "version": 2,
+  "id": "the-great-haze",
+  "name": "The Great Haze",
+  "description": "Working title. A horror survival migration game beneath a blood-red sky. Initial project setup only.",
+  "revision": 2,
+  "created_at": "2026-09-28T18:50:52.266Z",
+  "updated_at": "2026-09-28T18:50:52.277Z",
+  "storage": {
+    "default_import_root": "assets"
+  },
+  "applications": {
+    "dreamengine": {
+      "workspace": {
+        "mode": "managed",
+        "path": "dreamengine.project.json",
+        "path_kind": "file"
+      },
+      "asset_ids": [
+        "workspace:dreamengine:the-great-haze",
+        "scene:dreamengine:main",
+        "module:dreamengine:main"
+      ],
+      "primary_asset_id": "scene:dreamengine:main"
+    }
+  },
+  "bindings": {},
+  "assets": [
+    {
+      "id": "workspace:dreamengine:the-great-haze",
+      "kind": "document.dreamengine.workspace",
+      "name": "The Great Haze Workspace",
+      "owner": "dreamengine",
+      "role": "workspace",
+      "media_type": "application/json",
+      "tags": [],
+      "storage": {
+        "mode": "managed",
+        "path": "dreamengine.project.json",
+        "path_kind": "file"
+      },
+      "relationships": [],
+      "created_at": "2026-09-28T18:50:52.270Z",
+      "updated_at": "2026-09-28T18:50:52.270Z"
+    },
+    {
+      "id": "scene:dreamengine:main",
+      "kind": "document.dreamengine.scene",
+      "name": "Main",
+      "owner": "dreamengine",
+      "role": "primary",
+      "media_type": "application/json",
+      "tags": [],
+      "storage": {
+        "mode": "managed",
+        "path": "data/scenes/main.scene.json",
+        "path_kind": "file"
+      },
+      "relationships": [],
+      "created_at": "2026-09-28T18:50:52.270Z",
+      "updated_at": "2026-09-28T18:50:52.270Z"
+    },
+    {
+      "id": "module:dreamengine:main",
+      "kind": "code.dreamengine.module",
+      "name": "main.ts",
+      "owner": "dreamengine",
+      "media_type": "text/typescript",
+      "tags": [],
+      "storage": {
+        "mode": "managed",
+        "path": "src/main.ts",
+        "path_kind": "file"
+      },
+      "relationships": [],
+      "created_at": "2026-09-28T18:50:52.271Z",
+      "updated_at": "2026-09-28T18:50:52.271Z"
+    },
+    {
+      "id": "document:project:game-brief",
+      "kind": "document.markdown",
+      "name": "Original game brief",
+      "owner": "project",
+      "role": "source",
+      "media_type": "text/markdown",
+      "tags": [],
+      "storage": {
+        "mode": "managed",
+        "path": "docs/game-brief.md",
+        "path_kind": "file"
+      },
+      "integrity": {
+        "sha256": "82033d69a15251cc871e4218927ee8570f17bc8021b491cbc773dead0a610385",
+        "size": 1091
+      },
+      "relationships": [],
+      "created_at": "2026-09-28T18:50:52.274Z",
+      "updated_at": "2026-09-28T18:50:52.277Z"
+    }
+  ]
+}
