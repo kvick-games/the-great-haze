@@ -2,6 +2,7 @@
 // data view (`hud().map`) a client draws a parchment map from. Plain JSON only.
 
 import type { RegionId } from "./types.ts";
+import type { TellView } from "./talk-types.ts";
 
 export type NodeKind = "start" | "town" | "outpost" | "landmark" | "fork" | "end";
 export type TwistKind = "bridge-out" | "dead-end" | "burned";
@@ -209,5 +210,7 @@ export interface MapOffer {
   price: number;
   pitch: string;
   clues: string[];
+  /** The same clues in the shape scene tells use, for clients that render tells uniformly. */
+  tells: TellView[];
   owned: boolean;
 }

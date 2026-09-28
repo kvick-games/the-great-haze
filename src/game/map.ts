@@ -682,15 +682,19 @@ export function offerClues(s: GameState, offer: MapOfferDef): Clue[] {
 }
 
 export function mapOffersAt(s: GameState, storeId: string): MapOffer[] {
-  return MAP_OFFERS.filter((o) => o.storeId === storeId).map((o) => ({
+  return MAP_OFFERS.filter((o) => o.storeId === storeId).map((o) => {
+    const clues = offerClues(s, o);
+    return {
     id: o.id,
     name: o.name,
     seller: o.seller,
     price: priceOf(s.seed, o),
     pitch: o.pitch,
-    clues: offerClues(s, o).map((c) => c.text),
+    clues: clues.map((c) => c.text),
+    tells: clues.map((c, i) => ({ id: `map:${o.id}:${i}`, text: c.text, visible: true, severity: c.text.includes("\"") ? 2 : 1 })),
     owned: s.route.maps.some((m) => m.id === o.id),
-  }));
+    };
+  });
 }
 
 export function makeMapCopy(seed: number, offer: MapOfferDef): MapCopy {
