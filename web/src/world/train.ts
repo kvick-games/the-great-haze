@@ -9,7 +9,7 @@ import type { Pose } from "./actors.ts";
 import { LOAD_SLOTS, Ox, Wagon } from "./wagon.ts";
 import { Pops } from "./pops.ts";
 import { Flame, LightPool, Embers } from "./fx.ts";
-import { lookFor } from "./looks.ts";
+import { lookFor, lookForSim } from "./looks.ts";
 import { disposeTree } from "./dispose.ts";
 import { CLEARINGS, roadX, terrainHeight } from "./regions.ts";
 import { clamp01, damp, smoothstep } from "./noise.ts";
@@ -173,7 +173,7 @@ export class Train {
     for (const v of views) {
       let a = this.members.get(v.id);
       if (!a) {
-        const fig = new Figure(lookFor(v.id, v.role, v.isLeader, v.traits));
+        const fig = new Figure(v.look && !v.isLeader ? lookForSim(v.look, v.id) : lookFor(v.id, v.role, v.isLeader, v.traits));
         a = { id: v.id, fig, view: v, stage: null, leaving: null, hosted: null };
         this.members.set(v.id, a);
         this.group.add(fig.root);

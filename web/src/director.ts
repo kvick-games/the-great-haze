@@ -11,7 +11,7 @@ import { ROSTER } from "../../src/game/content/roster.ts";
 import { sceneById } from "../../src/game/content/scenes/index.ts";
 import { ENEMIES } from "../../src/game/content/enemies.ts";
 import { PACES, TUNING } from "../../src/game/tuning.ts";
-import { regionAt } from "../../src/game/world.ts";
+import { regionOf, regionSpans } from "../../src/game/map.ts";
 import type { World } from "./world/world.ts";
 import type { ShotFn } from "./world/camera.ts";
 import { Figure } from "./world/actors.ts";
@@ -23,6 +23,9 @@ import { disposeTree } from "./world/dispose.ts";
 import { Stage, buildArrival, buildStage, buildTown } from "./scenes/vignettes.ts";
 import { cross } from "./scenes/pieces.ts";
 import { CombatStage } from "./scenes/combat.ts";
+import { ForkStage } from "./scenes/fork.ts";
+import { Conversation } from "./talk/conversation.ts";
+import type { Plan } from "./talk/conversation.ts";
 import type { UI } from "./ui/ui.ts";
 import type { Audio } from "./audio.ts";
 import { VideoDirector } from "./video/video-director.ts";
@@ -76,12 +79,37 @@ export class Director {
   busy = false;
   readonly video = new VideoDirector();
   private campAngle = 0.8;
+  /** Spoken dialogue, rolls and tells staged in the world. */
+  readonly conv: Conversation;
 
   constructor(world: World, ui: UI, audio: Audio) {
     this.world = world;
     this.ui = ui;
     this.audio = audio;
     world.onTick((dt) => this.tick(dt));
+    this.conv = new Conversation({
+      world,
+      ui,
+      audio,
+      fast: FAST,
+      stage: () => this.stage,
+      inst: () => (this.game ? this.sceneInst() : null),
+      spot: () => this.guestSpot(),
+      // Dialogue cuts do not replace the scene's own shot: restoreShot returns to it.
+      shot: (fn, rate, cut) => this.world.rig.set(fn, rate, cut),
+      restoreShot: () => this.baseShot && this.world.rig.set(this.baseShot, 1.6),
+    });
+  }
+
+  /** Where a stranger with no staged place stands: just past the lead ox, or across the fire. */
+  private guestSpot(): { pos: THREE.Vector3; face: THREE.Vector3 } {
+    const tr = this.world.train;
+    if (tr.camp > 0.5) {
+      const c = tr.campCenter;
+      return { pos: c.clone().add(new THREE.Vector3(-6.5, 0, 4.5)), face: c.clone() };
+    }
+    const ahead = roadPoint(tr.d + 16);
+    return { pos: ahead.clone().add(roadRight(tr.d + 16).multiplyScalar(-2.4)), face: roadPoint(tr.d + 8.5) };
   }
 
   // ------------------------------------------------------------------ loop
@@ -307,7 +335,14 @@ export class Director {
 
   skip(): void {
     if (!this.busy) return;
+    // In a conversation a click goes on to the next line rather than fast-forwarding time.
+    if (this.conv.active) return this.conv.advance();
     this.world.timeScale = 10;
+  }
+
+  /** Leave a conversation, playing none of what is left. */
+  skipTalk(): void {
+    this.conv.skipAll();
   }
 
   /** Apply the sim's state to the world. `dawn` shows the caravan as it was when the day began. */
@@ -319,6 +354,7 @@ export class Director {
     tr.torchesLit = (dawn ? dawn.res.torches : s.res.torches) > 0;
     this.world.gapMiles = s.gap;
     this.world.target.reach = smoothstep(600, 830, s.miles);
+    this.world.setRegionSpans(regionSpans(s));
   }
 
   /** Bring party figures in line with the sim, animating arrivals, deaths, and departures. */
@@ -434,6 +470,7 @@ export class Director {
 
   private disposeAll(): void {
     const w = this.world;
+    this.conv.reset();
     if (this.stage) this.drop(this.stage);
     this.stage = null;
     for (const s of this.oldStages) this.drop(s);
@@ -513,6 +550,7 @@ export class Director {
     w.snap();
     if (p.kind === "scene") this.stageScene(p.scene, true);
     else if (p.kind === "combat") this.startCombatStage(p.combat.enemy);
+    else if (p.kind === "fork") this.stageFork(this.screen!, true);
     else if (p.kind === "arrival" || (p.kind === "store" && p.storeId !== "cinder-ford")) {
       const id = p.kind === "arrival" ? p.id : p.storeId === "wayhouse" ? "meridian-wayhouse" : "last-lamp";
       this.stageArrival(id);
@@ -619,6 +657,9 @@ export class Director {
   async act(id: string): Promise<void> {
     if (!this.game || this.busy) return;
     const prev = this.screen!;
+    // A fresh choice starts a fresh conversation; looking closer keeps the scene's people.
+    if (id === "look") this.conv.clearTells();
+    else this.conv.reset();
     const before = this.snapshot();
     const prevPending: Pending = JSON.parse(JSON.stringify(this.s.pending)) as Pending;
     const videoBefore = this.video.mark(this.game);
@@ -659,11 +700,41 @@ export class Director {
   /** Show the current card, labelled for the time of day, and frame the view around it. */
   present(): void {
     const s = this.screen!;
+    const plan = this.conv.plan(s);
+    if (plan?.staged) {
+      void this.talkThen(s, plan);
+      return;
+    }
+    // Someone who cannot be staged: the card carries the words instead.
+    if (plan) this.conv.markSeen(s);
+    this.showCard(s, plan ? "open" : this.conv.handles(s) ? "folded" : "open");
+  }
+
+  /** Play a screen's dialogue in the world, then bring up the card. */
+  private async talkThen(s: Screen, plan: Plan): Promise<void> {
+    const game = this.game;
+    this.busy = true;
+    this.ui.refreshHud(s);
+    this.ui.setTalk(true);
+    try {
+      await this.conv.run(s, plan);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      this.ui.setTalk(false);
+      this.busy = false;
+    }
+    if (this.game === game && this.screen === s) this.showCard(s, "folded");
+  }
+
+  private showCard(s: Screen, talk: "open" | "folded"): void {
     const night = this.game && !this.roadPhase() && this.s.day > 0;
     if (s.kind === "scene" && night) this.ui.kickerOverride = "In the night";
     else if (s.kind === "result" && s.title.startsWith("Nightfall")) this.ui.kickerOverride = "Nightfall";
-    this.ui.render(s);
+    this.ui.render(s, talk);
     this.frameForUI();
+    if (s.kind === "scene") this.conv.showTells(s);
+    else this.conv.clearTells();
     this.world.keyStrength = s.kind === "scene" || s.kind === "combat" || s.kind === "arrival" || s.kind === "store" || s.kind === "setup" ? 1 : 0.45;
   }
 
@@ -701,6 +772,8 @@ export class Director {
         return this.transition(next, before);
       case "result":
         return this.transition(next, before);
+      case "fork":
+        return this.chooseRoad(id, next, before);
       default:
         void w;
     }
@@ -813,7 +886,7 @@ export class Director {
     }
     w.target.night = 0.38;
     const pace = PACES[this.s.pace];
-    this.ui.say(`Day ${this.s.day} · ${regionAt(this.s.miles).name}`, `${pace.name} pace`);
+    this.ui.say(`Day ${this.s.day} · ${regionOf(this.s).name}`, `${pace.name} pace`);
     if (next.kind === "scene" && this.roadPhase()) return this.rollToScene(before);
     await this.rollDay(next, before);
     if (next.kind === "ending") {
@@ -827,7 +900,7 @@ export class Director {
 
   private expectedDayUnits(): number {
     const pace = PACES[this.s.pace];
-    return pace.hours * TUNING.baseMph * regionAt(this.s.miles).terrain * U;
+    return pace.hours * TUNING.baseMph * regionOf(this.s).terrain * U;
   }
 
   private async rollToScene(before: Snap): Promise<void> {
@@ -889,6 +962,8 @@ export class Director {
     const tr = this.world.train;
     const def = sceneById(inst.id);
     const kind = def?.kind;
+    // The stranger on the road looks like the person the scene describes.
+    if (this.stage) this.conv.cast.dress(this.stage, inst);
     const base = night || tr.camp > 0.5 ? tr.campCenter.clone() : roadPoint(tr.d - 2).add(new THREE.Vector3(5, 0, 0));
     const fig = (id?: string) => (id ? tr.members.get(id) : undefined);
     if (kind === "dispute" && inst.a && inst.b) {
@@ -1073,7 +1148,7 @@ export class Director {
         return;
       case "fork":
         this.retireStage();
-        this.shot(this.shotCamp(), 1.3);
+        this.stageFork(next);
         this.audio.sfx("bell");
         return;
       case "plan":
@@ -1100,6 +1175,50 @@ export class Director {
       default:
         return;
     }
+  }
+
+  /** The junction in 3D: a ribbon of road and a sign board per route, seen from in front of the oxen. */
+  private stageFork(s: Screen, snapCam = false): void {
+    if (!s.fork) {
+      this.shot(this.shotCamp(), 1.3);
+      return;
+    }
+    const st = new ForkStage(s.fork);
+    this.stage = st;
+    this.placeStage(st, this.world.train.d + 30);
+    st.conform();
+    this.shot(this.shotFork(st), 1.4, snapCam);
+  }
+
+  private shotFork(st: ForkStage): ShotFn {
+    return (t) => {
+      const sway = Math.sin(t * 0.09);
+      const pos = st.group.localToWorld(new THREE.Vector3(1.5 + sway * 1.2, 9.5, 33));
+      const tgt = st.group.localToWorld(new THREE.Vector3(0.6 + sway * 0.6, 2.2, -14));
+      return { pos: lift(pos, 2), target: tgt };
+    };
+  }
+
+  /** Hovering a route on the card lights that road in the world. */
+  hoverRoute(id: string | null): void {
+    if (this.stage instanceof ForkStage) this.stage.focusRoute(id);
+  }
+
+  /** The train commits: the chosen road lights, the camera turns down it, then the day carries on. */
+  private async chooseRoad(id: string, next: Screen, before: Snap): Promise<void> {
+    const st = this.stage;
+    if (st instanceof ForkStage) {
+      st.focusRoute(id);
+      const dir = st.routeDir(id);
+      if (dir) {
+        const from = st.group.localToWorld(new THREE.Vector3(3, 3.4, 12));
+        const at = st.group.localToWorld(new THREE.Vector3(0, 1.2, 0));
+        this.shot(() => ({ pos: lift(from.clone(), 2), target: at.clone().addScaledVector(dir, 30 + 0).setY(1.6) }), 1.3);
+      }
+      this.audio.sfx("bell");
+      await this.wait(1.5);
+    }
+    return this.transition(next, before);
   }
 
   private stageArrival(id: string): void {
@@ -1356,7 +1475,7 @@ export class Director {
     w.target.night = 0.62;
     w.train.clearStaging();
     this.syncWorldState();
-    this.ui.say(`Day ${this.s.day}`, regionAt(this.s.miles).name);
+    this.ui.say(`Day ${this.s.day}`, regionOf(this.s).name);
     this.shot(this.shotCamp(19, 7), 0.9);
     await this.wait(1.4);
   }

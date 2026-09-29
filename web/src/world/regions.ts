@@ -130,6 +130,34 @@ export const LOOKS: RegionLook[] = [
 export const REGION_LO = REGIONS.map((r, i) => (i === 0 ? -1e6 : r.start));
 export const REGION_HI = REGIONS.map((r, i) => (i === REGIONS.length - 1 ? 1e6 : r.end));
 
+/**
+ * Re-cut the regions along the odometer to follow the road actually taken.
+ * Regions the road never enters get an empty range. Returns true if anything
+ * moved, so callers can rebuild what was placed by the old map. Passing null
+ * restores the plain odometer bands.
+ */
+export function setRegionSpans(spans: { lo: number; hi: number; region: string }[] | null): boolean {
+  const lo = REGIONS.map((r, i) => (i === 0 ? -1e6 : r.start));
+  const hi = REGIONS.map((r, i) => (i === REGIONS.length - 1 ? 1e6 : r.end));
+  if (spans) {
+    lo.fill(1e9);
+    hi.fill(1e9);
+    for (const sp of spans) {
+      const i = REGIONS.findIndex((r) => r.id === sp.region);
+      if (i < 0) continue;
+      lo[i] = lo[i] === 1e9 ? sp.lo : Math.min(lo[i], sp.lo);
+      hi[i] = hi[i] === 1e9 ? sp.hi : Math.max(hi[i], sp.hi);
+    }
+  }
+  let changed = false;
+  for (let i = 0; i < lo.length; i++) {
+    if (Math.abs(lo[i] - REGION_LO[i]) > 1e-6 || Math.abs(hi[i] - REGION_HI[i]) > 1e-6) changed = true;
+    REGION_LO[i] = lo[i];
+    REGION_HI[i] = hi[i];
+  }
+  return changed;
+}
+
 export function regionWeights(miles: number, out: number[] = new Array(LOOKS.length).fill(0)): number[] {
   let sum = 0;
   for (let i = 0; i < LOOKS.length; i++) {
@@ -264,8 +292,8 @@ void regionColors(float miles, out vec3 g1, out vec3 g2, out vec3 road) {
 export function terrainUniforms(): Record<string, { value: unknown }> {
   const v3 = (pick: (l: RegionLook) => [number, number, number]) => LOOKS.map((l) => pick(l)).flat();
   return {
-    uRegLo: { value: REGION_LO.slice() },
-    uRegHi: { value: REGION_HI.slice() },
+    uRegLo: { value: REGION_LO },
+    uRegHi: { value: REGION_HI },
     uAmp: { value: LOOKS.map((l) => l.amp) },
     uRough: { value: LOOKS.map((l) => l.rough) },
     uBase: { value: LOOKS.map((l) => l.base) },

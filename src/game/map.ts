@@ -131,6 +131,56 @@ export function regionOf(s: GameState): RegionDef {
   return REGION_BY_ID.get(nodeAt(s).region) as RegionDef;
 }
 
+/** A stretch of odometer miles that reads as one region. */
+export interface RegionSpan {
+  lo: number;
+  hi: number;
+  region: RegionId;
+}
+
+/**
+ * The regions along the road as the odometer will read them: roads already
+ * travelled behind, the road in hand under the wheels, and the main road
+ * ahead. A client draws terrain from these so an alternate route looks like
+ * its own country, and the span holding the current mile is always the region
+ * `hud().regionId` names. The first span reaches far back and the last far
+ * forward, so every mile has a region.
+ */
+export function regionSpans(s: GameState): RegionSpan[] {
+  const r = s.route;
+  const spans: RegionSpan[] = [];
+  const e0 = activeEdge(s);
+  const start = r.edge ? s.miles - r.along : s.miles;
+  let node = r.node;
+  if (e0) {
+    spans.push({ lo: start, hi: start + e0.miles, region: e0.terrain });
+    node = e0.to;
+    let cursor = start + e0.miles;
+    for (let guard = 0; node !== END && guard < 40; guard++) {
+      const outs = outEdges(node);
+      const e = outs.find((x) => x.main) ?? outs[0];
+      if (!e) break;
+      spans.push({ lo: cursor, hi: cursor + e.miles, region: e.terrain });
+      cursor += e.miles;
+      node = e.to;
+    }
+  } else {
+    // At a fork or the end: the place's own country, until a road is chosen.
+    spans.push({ lo: start, hi: start + 1e6, region: nodeAt(s).region });
+  }
+  let cursor = start;
+  const done = r.edge && r.path[r.path.length - 1] === r.edge ? r.path.length - 1 : r.path.length;
+  for (let i = done - 1; i >= 0; i--) {
+    const e = EDGE_BY_ID.get(r.path[i]);
+    if (!e) continue;
+    spans.unshift({ lo: cursor - e.miles, hi: cursor, region: e.terrain });
+    cursor -= e.miles;
+  }
+  spans[0].lo = -1e6;
+  spans[spans.length - 1].hi = Math.max(spans[spans.length - 1].hi, 1e6);
+  return spans;
+}
+
 export function atFork(s: GameState): boolean {
   return s.route.edge === null && nodeAt(s).kind === "fork";
 }

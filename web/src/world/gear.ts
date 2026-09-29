@@ -69,7 +69,9 @@ export function crossPlate(size: number, plate = 0xd9d2c0): THREE.Group {
   return g;
 }
 
-export type Prop = "satchel" | "rifle" | "toolbelt" | "apron" | "spyglass" | "collar" | "book" | "lantern" | "bandolier";
+export type Prop = "satchel" | "rifle" | "toolbelt" | "apron" | "spyglass" | "collar" | "book" | "lantern" | "bandolier"
+  // What companions carry: the one thing you would remember them by.
+  | "bag" | "shoe" | "roll" | "bell" | "whip" | "sack" | "staff";
 
 /** The body parts a prop attaches to. */
 export interface Rig {
@@ -172,6 +174,58 @@ export function addProp(p: Prop, r: Rig): void {
       put(r.armR, g, 0, -0.66, 0.02);
       r.slots.lantern = g;
       r.slots.glow.push(core);
+      break;
+    }
+    case "bag": {
+      // A doctor's bag clutched to the chest.
+      const g = new THREE.Group();
+      g.add(mesh(gbox(0.36, 0.22, 0.14), M(0x1c1612, 0.6)));
+      g.add(put(g, mesh(gbox(0.34, 0.03, 0.15), M(0x0e0b09, 0.5)), 0, 0.1, 0));
+      g.add(put(g, mesh(gbox(0.05, 0.06, 0.02), M(0xb08a3a, 0.4, 0.15)), 0, 0.02, 0.078));
+      put(r.torso, g, 0, 0.3, 0.3 * w, -0.1, 0, 0);
+      break;
+    }
+    case "shoe": {
+      const g = new THREE.Group();
+      g.add(mesh(gbox(0.09, 0.07, 0.2), M(0x5a3c22, 0.8)));
+      g.add(put(g, mesh(gbox(0.09, 0.08, 0.07), M(0x3a2818, 0.8)), 0, 0.05, -0.07));
+      put(r.armL, g, 0.02, -0.76, 0.05);
+      break;
+    }
+    case "roll": {
+      // A rolled canvas of tools or maps tied across the back.
+      const g = new THREE.Group();
+      g.add(mesh(gcyl(0.09, 0.09, 0.62, 7), M(0x8a7a58, 0.95)));
+      g.add(put(g, mesh(gcyl(0.095, 0.095, 0.05, 7), M(0x3a2818)), 0, 0.14, 0));
+      g.add(put(g, mesh(gcyl(0.095, 0.095, 0.05, 7), M(0x3a2818)), 0, -0.14, 0));
+      put(r.torso, g, 0, 0.42, -0.3 * w, 0, 0, Math.PI / 2 - 0.25);
+      break;
+    }
+    case "bell": {
+      const g = new THREE.Group();
+      g.add(mesh(new THREE.ConeGeometry(0.08, 0.12, 7), M(0xb08a3a, 0.4, 0.1)));
+      g.add(put(g, mesh(gbox(0.02, 0.09, 0.02), M(0x2a1c12)), 0, 0.1, 0));
+      put(r.armR, g, 0, -0.78, 0.04);
+      break;
+    }
+    case "whip": {
+      const ring = mesh(geo("whipCoil", () => new THREE.TorusGeometry(0.11, 0.028, 4, 10)), M(0x3a2414));
+      put(r.torso, ring, -0.28 * w, -0.02, 0.06, 0, Math.PI / 2, 0);
+      put(r.torso, mesh(gcyl(0.02, 0.02, 0.32, 4), M(0x3a2414)), -0.3 * w, -0.24, 0.02, 0.1, 0, 0);
+      break;
+    }
+    case "sack": {
+      // A heavy canvas sack slung across the chest.
+      const g = new THREE.Group();
+      g.add(mesh(gbox(0.42, 0.36, 0.2), M(0x8a7a58, 0.95)));
+      g.add(put(g, mesh(gbox(0.44, 0.05, 0.22), M(0x3a2818)), 0, 0.16, 0));
+      put(r.torso, g, 0.12 * w, 0.02, 0.26 * w, 0, 0, 0.25);
+      put(r.torso, mesh(gbox(0.05, 0.86, 0.02), M(0x2a1c12)), 0, 0.3, 0.24 * w, 0, 0, 0.7);
+      break;
+    }
+    case "staff": {
+      // A crook, crutch or pole used as a walking staff.
+      put(r.armR, mesh(gcyl(0.026, 0.032, 1.5, 5), M(0x6a4a2a, 0.9)), 0, -0.6, 0.12, 0.1, 0, 0);
       break;
     }
     case "bandolier": {

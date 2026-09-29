@@ -34,6 +34,8 @@ export interface Look {
   props?: Prop[];
   /** Stable number that picks small per-person details, such as which limb a wound is on. */
   seed?: number;
+  /** Height multiplier on top of the build (a tall drover, a short tinker). */
+  stature?: number;
 }
 
 /** What the sim knows about a person's body and mind; drives gait, posture and marks. */
@@ -47,6 +49,8 @@ export interface Condition {
   dying?: boolean;
 }
 
+export type Mood = "calm" | "afraid" | "angry" | "pleading" | "sly" | "grieving" | "cold";
+export type Gesture = "none" | "point" | "beckon" | "shrug" | "raise-hands" | "clutch" | "kneel" | "draw-weapon" | "offer" | "turn-away";
 export type Pose = "stand" | "walk" | "sit" | "kneel" | "lie" | "aim" | "cower" | "reach" | "hunch";
 
 const PALE = new THREE.Color(0xc9c6bc);
@@ -75,6 +79,14 @@ export class Figure {
   readonly seed: number;
   readonly look: Look;
   pose: Pose = "stand";
+  /** Set by the conversation director; wins over `pose`, which the caravan rewrites every frame. */
+  poseOverride: Pose | null = null;
+  mood: Mood = "calm";
+  gesture: Gesture = "none";
+  /** True while this person has the floor: a small nod and hand movement. */
+  talking = false;
+  private yawOffCur = 0;
+  private gestureT = 0;
   torch: Flame | null = null;
   rifle: THREE.Object3D | null = null;
   phase = Math.random() * 10;
@@ -105,7 +117,7 @@ export class Figure {
     const s =
       look.build === "child" ? 0.72 : look.build === "slight" ? 0.94 : look.build === "broad" ? 1.06 : look.build === "long" ? 2.5 : look.build === "gaunt" ? 1.08 : 1;
     const ageScale = look.age === "child" ? 0.96 : look.age === "old" ? 0.97 : 1;
-    this.heightScale = s * ageScale;
+    this.heightScale = s * ageScale * (look.stature ?? 1);
     this.stoop = look.age === "old" ? 0.16 : look.age === "middle" ? 0.05 : 0;
     this.limpSide = this.seed % 2 === 0 ? 1 : -1;
     this.woundSite = Math.abs(this.seed >> 1) % 3;
@@ -378,6 +390,22 @@ export class Figure {
     }
   }
 
+  /** Set how this person carries themself. Kneel and draw-weapon also change the whole pose. */
+  setExpression(mood: Mood, gesture: Gesture = "none", talking = false): void {
+    if (gesture !== this.gesture) this.gestureT = 0;
+    this.mood = mood;
+    this.gesture = gesture;
+    this.talking = talking;
+    this.poseOverride = gesture === "kneel" ? "kneel" : null;
+    const armed = gesture === "draw-weapon";
+    if (armed !== this.drawn) {
+      this.drawn = armed;
+      this.holdRifle(armed);
+    }
+  }
+
+  private drawn = false;
+
   setRing(kind: "none" | "select" | "dying" | "focus"): void {
     this.ringKind = kind;
     this.ringMat.color.set(kind === "dying" ? 0xff2a2a : kind === "focus" ? 0xfff0d0 : 0xffa04d);
@@ -423,9 +451,10 @@ export class Figure {
   }
 
   update(dt: number, time: number): void {
+    const pose = this.poseOverride ?? this.pose;
     this.yaw = this.yaw + wrapAngle(this.targetYaw - this.yaw) * (1 - Math.exp(-8 * dt));
     this.root.rotation.y = this.yaw;
-    const walking = this.pose === "walk" || (this.speed > 0.2 && this.pose !== "lie" && this.pose !== "sit");
+    const walking = pose === "walk" || (this.speed > 0.2 && pose !== "lie" && pose !== "sit");
     const hurtGait = 1 - this.limp * 0.3 - this.stagger * 0.25;
     if (walking) this.phase += (dt * Math.max(this.speed, 0.8) * 3.2 * hurtGait) / this.heightScale;
     const swing = walking ? Math.sin(this.phase) : 0;
@@ -446,7 +475,7 @@ export class Figure {
     let armRz = -0.08 + this.hunch * 0.05;
     let headX = this.hunch * 0.5 - this.brisk * 0.03;
     let roll = 0;
-    switch (this.pose) {
+    switch (pose) {
       case "sit":
         hipsY = 0.5;
         legL = legR = -1.45;
@@ -486,15 +515,15 @@ export class Figure {
       default:
         break;
     }
-    if (this.torch && this.pose !== "lie") {
+    if (this.torch && pose !== "lie") {
       armR = walking ? -1.55 + swing * 0.08 : -1.75;
       armRz = -0.2;
     }
-    if (this.pose !== "walk" && this.pose !== "lie" && !walking) {
+    if (pose !== "walk" && pose !== "lie" && !walking) {
       // Breathing.
       lean += Math.sin(time * 1.3 + this.phase) * 0.015;
     }
-    if (this.pose !== "lie") {
+    if (pose !== "lie") {
       if (walking && this.limp > 0.02) {
         // Weight comes down on the bad leg: the hips drop and the shoulders roll toward it.
         const planted = Math.max(0, Math.sin(this.phase + (badL ? Math.PI : 0)));
@@ -514,6 +543,128 @@ export class Figure {
         headX += c * 0.25;
       }
     }
+    // Conversation: mood sets the resting posture, gesture the hands. Only for people who are
+    // not mid-stride, so a walking caravan is never disturbed.
+    let headZ = 0;
+    let headY = 0;
+    let yawOff = 0;
+    if (!walking && pose !== "lie") {
+      this.gestureT += dt;
+      const g = this.gesture;
+      const gt = this.gestureT;
+      switch (this.mood) {
+        case "afraid":
+          lean += 0.06;
+          headX += 0.12;
+          armL = armR = -0.35;
+          armLz = 0.32;
+          armRz = -0.32;
+          headY = Math.sin(time * 1.9 + this.seed) * 0.25;
+          lean += Math.sin(time * 27 + this.seed) * 0.008;
+          break;
+        case "angry":
+          lean += 0.1;
+          headX += 0.14;
+          armL = armR = -0.45;
+          armLz = 0.35;
+          armRz = -0.35;
+          break;
+        case "pleading":
+          lean += 0.14;
+          headX += 0.18;
+          armL = armR = -0.95;
+          armLz = 0.5;
+          armRz = -0.5;
+          break;
+        case "sly":
+          lean -= 0.05;
+          headZ = 0.22;
+          headX -= 0.05;
+          armL = -0.15;
+          armR = -0.9;
+          armRz = -0.25;
+          break;
+        case "grieving":
+          lean += 0.22;
+          headX += 0.45;
+          armL = armR = 0.08;
+          break;
+        case "cold":
+          lean -= 0.04;
+          headX -= 0.06;
+          armL = armR = 0;
+          armLz = 0.02;
+          armRz = -0.02;
+          break;
+        default:
+          break;
+      }
+      switch (g) {
+        case "point":
+          armR = -1.5 + Math.sin(gt * 5) * 0.05;
+          armRz = -0.05;
+          lean += 0.05;
+          break;
+        case "beckon":
+          armR = -1.15 + Math.sin(gt * 7) * 0.32;
+          armRz = -0.2;
+          break;
+        case "shrug":
+          armL = armR = -0.35;
+          armLz = 0.75;
+          armRz = -0.75;
+          headZ = 0.2;
+          hipsY -= 0.01;
+          break;
+        case "raise-hands":
+          armL = armR = -2.5;
+          armLz = 0.25;
+          armRz = -0.25;
+          headX -= 0.08;
+          break;
+        case "clutch":
+          armL = armR = -1.15;
+          armLz = 0.75;
+          armRz = -0.75;
+          lean += 0.18;
+          headX += 0.15;
+          break;
+        case "kneel":
+          armL = armR = -0.85;
+          armLz = 0.4;
+          armRz = -0.4;
+          headX += 0.2;
+          break;
+        case "draw-weapon":
+          armR = -1.5;
+          armL = -1.35;
+          armLz = 0.45;
+          lean += 0.06;
+          break;
+        case "offer":
+          armL = armR = -1.25;
+          armLz = 0.18;
+          armRz = -0.18;
+          lean += 0.06;
+          break;
+        case "turn-away":
+          yawOff = 2.3;
+          headY = -1.0;
+          lean += 0.05;
+          break;
+        default:
+          break;
+      }
+      if (this.talking) {
+        headX += Math.abs(Math.sin(time * 8.5)) * 0.045;
+        if (g === "none") {
+          armR += Math.sin(time * 3.1) * 0.09;
+          armL += Math.sin(time * 2.3 + 1) * 0.06;
+        }
+      }
+    }
+    this.yawOffCur += (yawOff - this.yawOffCur) * (1 - Math.exp(-6 * dt));
+    this.root.rotation.y = this.yaw + this.yawOffCur;
     const k = 1 - Math.exp(-10 * dt);
     this.hips.position.y += (hipsY + (walking ? Math.abs(Math.cos(this.phase)) * 0.04 * (1 - this.limp * 0.5) : 0) - this.hips.position.y) * k;
     this.legL.rotation.x += (legL - this.legL.rotation.x) * k;
@@ -527,8 +678,10 @@ export class Figure {
     // Keep a held torch upright whatever the arm is doing.
     if (this.holder) this.holder.rotation.x = -this.armR.rotation.x - this.torso.rotation.x - 0.12;
     this.head.rotation.x += (headX - this.head.rotation.x) * k;
+    this.head.rotation.z += (headZ - this.head.rotation.z) * k;
+    this.head.rotation.y += (headY - this.head.rotation.y) * k;
 
-    this.down = damp(this.down, this.pose === "lie" ? 1 : 0, 4, dt);
+    this.down = damp(this.down, pose === "lie" ? 1 : 0, 4, dt);
     this.body.rotation.x = -this.down * Math.PI * 0.5;
     this.body.position.y = this.down * 0.18 * this.heightScale;
     this.body.position.z = this.down * 0.9 * this.heightScale;
