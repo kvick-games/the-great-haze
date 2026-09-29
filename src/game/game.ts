@@ -23,7 +23,7 @@ import type {
 import { RESOURCE_IDS } from "./types.ts";
 import { Rng, hashSeed } from "./rng.ts";
 import type { Env } from "./effects.ts";
-import { addResource, applyEffects, changeNerve, fillText, heal } from "./effects.ts";
+import { addResource, allConds, applyEffects, changeNerve, fillText, heal } from "./effects.ts";
 import {
   able,
   addBond,
@@ -35,6 +35,7 @@ import {
   conditionsOf,
   firstName,
   hasRole,
+  hearsHaze,
   hasTrait,
   leader,
   living,
@@ -506,7 +507,7 @@ export class Game {
     ];
     const talk: SpokenLine[] = [];
     if (s.today.forecast) {
-      const haunted = able(s).find((m) => hasTrait(m, "haunted") && m.nerve > 20);
+      const haunted = able(s).find((m) => hearsHaze(m) && m.nerve > 20);
       if (haunted) {
         const surge = s.today.surge === "surge";
         talk.push({
@@ -849,7 +850,7 @@ export class Game {
       surge = "lull";
       haze = Math.max(2, haze - TUNING.lullMiles);
     }
-    const haunted = able(s).some((m) => hasTrait(m, "haunted") && m.nerve > 20);
+    const haunted = able(s).some((m) => hearsHaze(m) && m.nerve > 20);
     s.today = { hoursUsed: 0, startMiles: s.miles, hazeMiles: haze, surge, forecast: haunted && surge !== null };
     s.pending = { kind: "plan" };
   }
@@ -882,6 +883,7 @@ export class Game {
           if ([item.actor, item.a, item.b].some((id) => id && !byId(s, id)?.alive)) continue;
           if (def.pairWeight && !(item.a && item.b) && !hasPair(env, def)) continue;
           if (def.others && living(s).filter((m) => !m.isLeader).length < 2) continue;
+          if (def.onlyIf && !allConds(env, def.onlyIf)) continue;
           const scene = buildScene(env, item);
           s.recent.push(def.id);
           if (s.recent.length > 12) s.recent.shift();

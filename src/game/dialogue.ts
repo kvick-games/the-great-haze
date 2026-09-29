@@ -10,7 +10,7 @@
 
 import type { GameState, Gesture, Line, Member, Mood, SceneDef, SceneInstance, SpokenLine, Trait } from "./types.ts";
 import type { Env } from "./effects.ts";
-import { fillText, resolveWho } from "./effects.ts";
+import { allConds, fillText, resolveWho } from "./effects.ts";
 import { able, byId, firstName, hasTrait, living } from "./party.ts";
 import { pickChecker } from "./checks.ts";
 import { hashSeed } from "./rng.ts";
@@ -81,6 +81,11 @@ export function resolveSpeaker(env: Env, ctx: TalkCtx, who: Line["who"]): Resolv
       return asMember(resolveWho(env, "b")[0]);
     case "by":
       return asMember(byId(s, env.bind.by));
+    case "taken": {
+      // Their voice, out in the fog: staged as a loose figure, since they are not on the train.
+      const gone = resolveWho(env, "taken")[0];
+      return gone ? { id: gone.id, name: firstName(gone), kind: "npc", traits: gone.traits } : undefined;
+    }
     case "observer": {
       const seen = byId(s, ctx.inst?.observer);
       if (seen?.alive) return asMember(seen);
@@ -122,6 +127,7 @@ export function sayLine(env: Env, ctx: TalkCtx, line: Line): SpokenLine | undefi
 export function sayLines(env: Env, ctx: TalkCtx, lines: Line[] | undefined): SpokenLine[] {
   const out: SpokenLine[] = [];
   for (const line of lines ?? []) {
+    if (line.when && !allConds(env, line.when)) continue;
     const said = sayLine(env, ctx, line);
     if (said) out.push(said);
   }

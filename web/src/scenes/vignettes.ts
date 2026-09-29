@@ -327,6 +327,30 @@ const BUILDS: Record<string, Build> = {
     st.look(9.5, -10, 4);
     st.add(P.telegraph(5), 9.5, -30);
   },
+  // --- the witch --------------------------------------------------------------
+  "witch-fog-lure": (st) => {
+    st.look(-16, -6);
+    st.add(P.fogBank(40, 26), -20, -6);
+    st.fig("witch", -20, -8, "reach", "stranger", { ry: 0.4 });
+  },
+  "witch-takes": (st) => {
+    st.look(-14, -6, 1);
+    st.add(P.fogBank(60, 30), -20, -4);
+    st.add(P.fogBank(40, 30), 18, 6);
+    st.fig("witch", -18, -6, "reach", "stranger", { ry: 0.5 });
+    st.fig("hollowed", -21, -8, "stand", "shade", { eyes: 0.4, drift: 0.3 });
+  },
+  "witch-bargain": (st) => {
+    st.look(-18, -6);
+    st.add(P.fogBank(70, 30), -22, -6);
+    st.fig("witch", -24, -8, "stand", "stranger", { ry: 0.4 });
+  },
+  "witch-door": (st) => {
+    st.look(-14, -8, 1);
+    st.add(P.fogBank(60, 24), -18, -6);
+    st.add(P.house({ lit: true, seed: 31 }), -20, -12, Math.PI / 2);
+    st.fig("witch", -15, -8, "reach", "stranger", { ry: 0.4 });
+  },
   // --- oddities ---------------------------------------------------------------
   "empty-town": (st) => {
     st.look(0, -10, 2);

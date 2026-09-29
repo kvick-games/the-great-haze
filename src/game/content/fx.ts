@@ -1,6 +1,6 @@
 // Tiny builders so scene content reads like prose rather than plumbing.
 
-import type { AffairOp, Cond, Effect, EndingKind, Line, Outcome, RelKind, ResourceId, Who } from "../types.ts";
+import type { AffairOp, Cond, Effect, EndingKind, Line, Mark, Outcome, RelKind, ResourceId, Who } from "../types.ts";
 import type { Amount } from "../rng.ts";
 
 export const fx = {
@@ -31,6 +31,13 @@ export const fx = {
   affair: (op: AffairOp): Effect => ({ t: "affair", op }),
   note: (who: Who, text: string): Effect => ({ t: "note", who, text }),
   end: (kind: EndingKind, headline: string, text: string[]): Effect => ({ t: "end", kind, headline, text }),
+  // The witch storyline (see witch.ts).
+  abduct: (ward = false): Effect => ({ t: "abduct", ward }),
+  restore: (changed = 0.3, leave = 0): Effect => ({ t: "restore", changed, leave }),
+  lose: (cause = "kept by the witch", abandon = false): Effect => ({ t: "lose", cause, abandon }),
+  days: (d: Amount): Effect => ({ t: "days", d }),
+  mark: (who: Who, mark: Mark, chance?: number): Effect => ({ t: "mark", who, mark, chance }),
+  set: (key: string, v: Amount, day = false): Effect => ({ t: "flagSet", key, v, day }),
 };
 
 /** An outcome with spoken lines, optionally gated on the option's check. */

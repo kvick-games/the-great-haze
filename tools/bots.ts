@@ -254,6 +254,7 @@ export function chooseOption(game: Game, strategy: Strategy, rand: Rand): string
       if (def.id === "the-gate") {
         for (const id of ["enter", "leave-marked", "smuggle", "stay-out"]) if (opts.some((o) => o.id === id)) return id;
       }
+      if (def.id.startsWith("witch-")) return chooseWitch(game, strategy, def.id, opts);
       if (def.kind === "landmark") {
         // Route choices: the cautious take the safe road, the reckless the fast one.
         if (def.id === "glass-fork") return strategy === "reckless" ? "rail" : "pilgrim";
@@ -272,6 +273,50 @@ export function chooseOption(game: Game, strategy: Strategy, rand: Rand): string
     }
     default:
       throw new Error(`Bot cannot handle ${p.kind}`);
+  }
+}
+
+/**
+ * The witch. Samaritans go after their people and pay for it in days; the cautious fight her
+ * when the party is healthy and armed, else let go; the reckless keep moving.
+ */
+function chooseWitch(_game: Game, strategy: Strategy, id: string, opts: ScreenOption[]): string {
+  const has = (o: string) => opts.some((x) => x.id === o && enabled(x));
+  const first = (...ids: string[]) => ids.find(has) ?? cheapest(opts).id;
+  switch (id) {
+    case "witch-signs":
+      return strategy === "cautious" ? first("study", "press") : first("ward", "press");
+    case "witch-fog-lure":
+      return first("torches", "refuse");
+    case "witch-takes":
+      return first("hold", "stand");
+    case "witch-aftermath": {
+      if (strategy === "samaritan") return first("pursue", "abandon");
+      if (strategy === "cautious") return first("fight", "abandon");
+      return first("abandon");
+    }
+    case "witch-fled":
+      return strategy === "samaritan" ? first("pursue", "bargain", "abandon") : first("abandon");
+    case "witch-bargain":
+      return first("offer-supplies", "decline");
+    case "witch-trail":
+      return first("track", "salt", "turn-back");
+    case "witch-bog":
+      return first("raft", "wade", "turn-back");
+    case "witch-wood":
+      return first("burn", "walk", "turn-back");
+    case "witch-hounds":
+      return first("fight", "sneak", "turn-back");
+    case "witch-door":
+      return first("riddle", "offer-supplies", "offer-years", "turn-back");
+    case "witch-final-fled":
+      return first("walk-out");
+    case "witch-freed":
+      return first("burn", "leave");
+    case "witch-voice":
+      return first("pray", "ignore");
+    default:
+      return cheapest(opts).id;
   }
 }
 

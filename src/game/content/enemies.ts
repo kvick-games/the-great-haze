@@ -1,6 +1,6 @@
 import type { Effect } from "../types.ts";
 
-export type EnemyTag = "human" | "hollowed" | "beast";
+export type EnemyTag = "human" | "hollowed" | "beast" | "witch";
 
 export interface EnemyDef {
   id: string;
@@ -21,6 +21,14 @@ export interface EnemyDef {
   win: string;
   fled: string;
   loot?: Effect[];
+  /** Her voice finds a member each round: they lose nerve, and may come away hexed. */
+  hex?: { chance: number; nerve: [number, number]; mark: number };
+  /** While captives are held she turns one on the party each round: `chance`, then a blow of `dmg`. */
+  puppets?: { chance: number; dmg: [number, number] };
+  /** While captives are held she keeps them in front of the shots: this share of the party's damage is undone. */
+  shield?: number;
+  /** A flag that, once set, makes the fight easier: her strength is multiplied. */
+  weakenedBy?: { flag: string; mult: number };
 }
 
 export const ENEMIES: Record<string, EnemyDef> = {
@@ -136,6 +144,27 @@ export const ENEMIES: Record<string, EnemyDef> = {
       "Something tall stands at the edge of the torchlight. It was a man, once, and a very tall man at that. The Haze has kept stretching him.",
     win: "It folds to the ground in sections. The fog closes over where it fell, and does not come further this night.",
     fled: "It draws back into the dark, unhurried, and you know that is not the last time you will see it.",
+  },
+  witch: {
+    id: "witch",
+    name: "The witch",
+    tags: ["witch"],
+    hp: 38,
+    hits: 1,
+    atk: [6, 10],
+    lightWeak: true,
+    canFlee: false,
+    hex: { chance: 0.7, nerve: [2, 5], mark: 0.1 },
+    puppets: { chance: 0.4, dmg: [3, 6] },
+    shield: 0.3,
+    weakenedBy: { flag: "witch:weakened", mult: 0.7 },
+    intro: "She stands in the road with the ones she took on either side of her, hands held loosely, eyes open. She smiles at you.",
+    win: "She folds up like wet paper. The fog lets go of the ones she held, and they breathe.",
+    fled: "She steps back into the fog with her hands on their shoulders, and the fog closes like a door.",
+    loot: [
+      { t: "restore", changed: 0.15 },
+      { t: "scene", id: "witch-freed" },
+    ],
   },
   "the-turned": {
     id: "the-turned",

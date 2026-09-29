@@ -188,6 +188,14 @@ real toll), Last Lamp (store, brutal prices), and **the Gate of the Blue Reach**
 **The Gate** refuses anyone the Haze has marked. Bring them in with a lie and risk everyone, leave them in the
 "quarantine ward" and go in without them, or stay outside together. Four endings, all earned by the run.
 
+## The witch
+
+A multi-stage storyline (`src/game/witch.ts`, `content/scenes/witch.ts`). Signs come first: dolls in the branches, salt on the road, or a woman waving from the red. The train may ring the camp in salt and torches, study the marks (a spot check that teaches how she works), or ignore them. On the night she chose, she takes one to three people; who, and how many, is decided by resistance rolls (nerve, traits, wards, lore), and a bad night for a frightened, close-pressed train takes more. Taken members count as gone for every rule but are not dead.
+
+Then the train chooses: fight her at the tree line (she shields herself with captives, hexes nerve, and turns a taken person against you); follow her into the hollow (a chain of three or four scenes, each costing whole days while the Haze closes about a dozen miles a day, ending at her table); call her back and bargain at the ring; or give them up. At her table she asks for supplies, years (`aged`, less maximum health), a memory (`forgotten`, worse at reading people), or one of the crew, and takes the other things at worse odds. The demand, the path through the hollow, and each roll are seeded, so a replay of the same run reads the same.
+
+Rescued people may return changed (`hexed`, `witch-touched`); those left behind call from the fog later (`witch-voice`). Costs are shown on the choices (days, hours). Relationship effects are left as `TODO(relationships)` hooks in `witch.ts`.
+
 ## Route map, forks and maps that lie
 
 The road is a graph (`src/game/routes.ts`): nodes (towns, outposts, landmarks, forks) joined by edges that carry

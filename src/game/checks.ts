@@ -65,6 +65,12 @@ export function checkBonus(kind: CheckKind, m: Member): Bonus {
   if (m.wounded) add(-1, "hurt");
   if (m.sick) add(-1, "fevered");
   if (m.fog >= 1) add(PERCEPTION.includes(kind) ? -m.fog : -1, "fog in the lungs");
+  // What the witch's hands leave behind.
+  if (m.marks && m.marks.length) {
+    if (m.marks.includes("hexed") && (kind === "persuade" || kind === "calm")) add(-1, "hexed");
+    if (m.marks.includes("witch-touched")) add(kind === "spot" ? 2 : kind === "see-lie" ? 1 : 0, "witch-touched");
+    if (m.marks.includes("forgotten")) add(kind === "see-lie" ? -2 : kind === "spot" ? -1 : 0, "forgotten faces");
+  }
   return { bonus, parts };
 }
 

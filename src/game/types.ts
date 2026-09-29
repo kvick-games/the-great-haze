@@ -40,6 +40,10 @@ export const TRAITS = [
 ] as const;
 export type Trait = (typeof TRAITS)[number];
 
+/** Lasting marks a witch can leave on a person. See witch.ts for what each one does. */
+export const MARKS = ["hexed", "witch-touched", "aged", "forgotten"] as const;
+export type Mark = (typeof MARKS)[number];
+
 export type PaceId = "easy" | "steady" | "hard" | "halt";
 export type RationId = "full" | "meager" | "bare";
 export type Truth = "genuine" | "trap" | "none";
@@ -75,6 +79,12 @@ export interface Member {
   recruited?: boolean;
   /** Notable things that happened to them, newest last (capped). Short past-tense lines. */
   history: HistoryEntry[];
+  /** Held by the witch: not alive, but not dead either, and a rescue can bring them back. */
+  captive?: boolean;
+  /** Was taken by the witch at some point (held, rescued or lost), so hauntings can find them. */
+  taken?: boolean;
+  /** Lasting effects of the witch's hands. */
+  marks?: Mark[];
 }
 
 export interface HistoryEntry {
@@ -99,6 +109,8 @@ export type Who =
   | "others"
   | "weakest"
   | "fogsick"
+  /** Whoever the witch took most recently and has not given back: held or lost. Not alive. */
+  | "taken"
   /** Whoever made the option's dialogue check (see checks.ts). */
   | "by"
   | { first: Who[] }
@@ -127,6 +139,8 @@ export type Cond =
   | { aff: { a: Who; b: Who; min?: number; max?: number } }
   | { partyMin: number }
   | { partyMax: number }
+  /** At least this many people are held by the witch. */
+  | { captives: number }
   | { not: Cond }
   | { any: Cond[] };
 
@@ -157,7 +171,18 @@ export type Effect =
   | { t: "flag"; key: string; d: number }
   | { t: "kill"; who: Who; cause?: string }
   | { t: "end"; kind: EndingKind; headline: string; text: string[] }
-  | { t: "leave"; who: Who; takes?: Partial<Record<ResourceId, number>>; cause?: string };
+  | { t: "leave"; who: Who; takes?: Partial<Record<ResourceId, number>>; cause?: string }
+  /** The witch takes 1-2 people (3 on a bad night). Resistance rolls decide who; `ward` helps them resist. Also picks her demand. */
+  | { t: "abduct"; ward?: boolean }
+  /** Bring the captives back, weak, some of them changed. `leave` of them stay lost; `changed` is the chance each is marked. */
+  | { t: "restore"; changed?: number; leave?: number }
+  /** The captives are gone for good. `abandon` also costs the train its trust and nerve: they saw you choose. */
+  | { t: "lose"; cause?: string; abandon?: boolean }
+  /** Whole days spent off the road: the Haze closes, food and torches burn, the dying may die. */
+  | { t: "days"; d: Amount }
+  | { t: "mark"; who: Who; mark: Mark; chance?: number }
+  /** Set a flag to an absolute value, or to today plus the value when `day` is set. */
+  | { t: "flagSet"; key: string; v: Amount; day?: boolean };
 
 export type SceneKind =
   | "hazard"
@@ -228,6 +253,8 @@ export interface SceneDef {
   closeBias?: number;
   once?: boolean;
   when?: Cond[];
+  /** Checked when the scene comes off the queue: if any fail it is skipped. For chained storylines. */
+  onlyIf?: Cond[];
   /** Strangers only: probability the situation is genuine. Default 0.5. */
   genuineOdds?: number;
   title: string;
