@@ -137,7 +137,8 @@ export class UI {
     const top = Math.max(8, hudBottom + 4);
     if (kind === "talk") return { top, bottom: H * 0.045 + 10, side: 12 };
     const card = this.card.getBoundingClientRect();
-    const party = this.party.firstChild ? this.party.getBoundingClientRect() : null;
+    // A dock the stylesheet has hidden (display: none) takes no space.
+    const party = this.party.firstChild && this.party.offsetParent ? this.party.getBoundingClientRect() : null;
     if (!this.card.firstChild) return { top, bottom: 12, side: 12 };
     if (card.width > W * 0.8) {
       const bottom = party && party.top < card.top ? party.top : card.top;
@@ -176,7 +177,7 @@ export class UI {
     const H = window.innerHeight;
     if (this.busy || this.root.classList.contains("at-title") || !this.card.firstChild) return { fx: 0, fy: 0 };
     const card = this.card.getBoundingClientRect();
-    const party = this.party.firstChild ? this.party.getBoundingClientRect() : null;
+    const party = this.party.firstChild && this.party.offsetParent ? this.party.getBoundingClientRect() : null;
     const hudH = this.hud.getBoundingClientRect().height * 0.8;
     if (card.width > W * 0.8) {
       // Bottom sheet: the free area is between the HUD and the card (or the party strip).
