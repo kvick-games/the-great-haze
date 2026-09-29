@@ -47,6 +47,8 @@ export interface FalResult {
   requestId: string;
   videoUrl: string;
   raw: unknown;
+  /** Response headers that mention billing or cost, if fal sent any. */
+  billingHeaders: Record<string, string>;
 }
 
 function assertFalUrl(u: string): void {
@@ -91,10 +93,34 @@ export async function waitForResult(ticket: QueueTicket, opts: { fetch?: Fetch; 
   const raw = (await r.json()) as { video?: { url?: string } };
   const url = raw.video?.url;
   if (!url) throw new Error("fal result had no video.url");
-  return { requestId: ticket.request_id, videoUrl: url, raw };
+  const billingHeaders: Record<string, string> = {};
+  r.headers.forEach((v, k) => {
+    if (/billable|cost|price|usd/i.test(k)) billingHeaders[k] = v;
+  });
+  return { requestId: ticket.request_id, videoUrl: url, raw, billingHeaders };
 }
 
 export async function generate(endpoint: string, body: Record<string, unknown>, opts: Parameters<typeof waitForResult>[1] = {}): Promise<FalResult> {
   const ticket = await submit(endpoint, body, opts);
   return waitForResult(ticket, opts);
+}
+
+/**
+ * Upload bytes to fal's storage and return the file URL to pass as a reference.
+ * Two steps: ask for an upload slot (authenticated), then PUT the bytes to the slot URL.
+ */
+export async function uploadFile(bytes: Uint8Array, fileName: string, contentType: string, opts: { fetch?: Fetch; env?: NodeJS.ProcessEnv } = {}): Promise<string> {
+  const env = opts.env ?? process.env;
+  const f = opts.fetch ?? fetch;
+  const init = await f("https://rest.alpha.fal.ai/storage/upload/initiate?storage_type=fal-cdn-v3", {
+    method: "POST",
+    headers: { Authorization: `${FAL_CONFIG.authScheme} ${keyFrom(env)}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ content_type: contentType, file_name: fileName }),
+  });
+  if (!init.ok) throw new Error(redact(`fal upload initiate failed: HTTP ${init.status} ${(await init.text()).slice(0, 200)}`, env));
+  const { upload_url, file_url } = (await init.json()) as { upload_url?: string; file_url?: string };
+  if (!upload_url || !file_url) throw new Error("fal upload initiate returned no urls");
+  const put = await f(upload_url, { method: "PUT", headers: { "Content-Type": contentType }, body: new Blob([bytes]) });
+  if (!put.ok) throw new Error(`fal upload failed: HTTP ${put.status}`);
+  return file_url;
 }

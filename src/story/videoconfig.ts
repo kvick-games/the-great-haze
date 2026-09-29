@@ -52,6 +52,12 @@ export const LIMITS = {
  */
 export const PRICE_PER_SECOND_USD: Record<Resolution, number> = { "480P": 0.025, "768P": 0.04, "1080P": 0.08 };
 
+/**
+ * Public list price of the reference-to-video endpoint (fal's model page), USD per requested
+ * second. Billing uses the requested duration, not the render time.
+ */
+export const H3_MAX_R2V_PRICE_PER_SECOND_USD: Record<Resolution, number> = { "480P": 0.05, "768P": 0.08, "1080P": 0.16 };
+
 export const DEFAULTS = {
   mode: "reference" as ShotMode,
   resolution: "768P" as Resolution,
