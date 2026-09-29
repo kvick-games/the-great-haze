@@ -6,6 +6,7 @@ import { UI } from "./ui/ui.ts";
 import { Director } from "./director.ts";
 import { Audio } from "./audio.ts";
 import { voice } from "./talk/voice.ts";
+import { PortraitStudio } from "./ui/portraits.ts";
 import type { Figure } from "./world/actors.ts";
 import { ROSTER } from "../../src/game/content/roster.ts";
 
@@ -43,6 +44,7 @@ function boot(): void {
   }
   const audio = new Audio();
   let director: Director;
+  const portraits = new PortraitStudio();
   const ui = new UI(root, {
     choose: (id) => {
       audio.wake();
@@ -90,6 +92,8 @@ function boot(): void {
     skipTalk: () => director.skipTalk(),
     hoverRoute: (id) => director.hoverRoute(id),
     focusMember: (id) => director.focusMember(id),
+    state: () => director?.game?.s ?? null,
+    portrait: (spec) => portraits.get(spec),
     hoverMember: (id) => director.highlight(id),
     toggleSound: () => audio.toggle(),
     toggleVoice: () => voice.toggle(),
@@ -169,7 +173,10 @@ function boot(): void {
     const hit = pickFigure(ev);
     if (!hit || !director.game) return;
     if (hit.candidate) void director.act(`pick:${hit.id}`);
-    else director.focusMember(hit.id);
+    else {
+      director.focusMember(hit.id);
+      ui.openCrew(hit.id);
+    }
   });
   canvas.addEventListener("wheel", (ev) => {
     world.rig.zoom(ev.deltaY);
