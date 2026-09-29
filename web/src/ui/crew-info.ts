@@ -6,24 +6,17 @@
 // pair bonds, trust, fate, and a chronicle the client keeps by watching the party
 // change from one screen to the next.
 //
-// SWITCH POINT: when src/game/relationships.ts lands, replace the body of readTies with
-//   import { relationsOf } from "../../../src/game/relationships.ts";
-//   return relationsOf(s, id);
-// and readHistory will start using Member.history on its own (see the cast there).
+// Living members' ties come from relationsOf (src/game/relationships.ts); their history merges
+// Member.history with the client's own chronicle.
 
 import type { GameState, Member, MemberView, Trait } from "../../../src/game/types.ts";
 import { conditionsOf, memberView } from "../../../src/game/party.ts";
 import { npcById } from "../../../src/game/content/npcs.ts";
 import { TUNING } from "../../../src/game/tuning.ts";
 
-/** Shape promised by the relationships module. */
-export interface RelationView {
-  otherId: string;
-  otherName: string;
-  kind: string;
-  score: number;
-  label: string;
-}
+import { relationsOf } from "../../../src/game/relationships.ts";
+import type { RelationView } from "../../../src/game/relationships.ts";
+export type { RelationView };
 
 export interface HistoryEntry {
   day: number;
@@ -114,7 +107,6 @@ function tieLabel(score: number): string {
 }
 
 function readTies(s: GameState, m: Member): RelationView[] {
-  // ---- SWITCH POINT: return relationsOf(s, m.id) once src/game/relationships.ts exists.
   const out: RelationView[] = [];
   const lead = s.party.find((p) => p.isLeader);
   if (!m.isLeader && m.alive) {
@@ -122,6 +114,8 @@ function readTies(s: GameState, m: Member): RelationView[] {
       const label = m.trust >= 75 ? "Trusts you fully" : m.trust >= 50 ? "Trusts you" : m.trust >= 25 ? "Doubts you" : "Would leave you";
       out.push({ otherId: lead.id, otherName: `${lead.name} (you)`, kind: "trust", score: Math.round((m.trust - 50) * 2), label });
     }
+    // The sim's own view of who they are to the others: only what the wagon-master knows.
+    return [...out, ...relationsOf(s, m.id)];
   }
   for (const [key, score] of Object.entries(s.bonds)) {
     const [a, b] = key.split("|");
@@ -241,12 +235,11 @@ export class Chronicle {
 }
 
 function readHistory(m: Member, chronicle: Chronicle): HistoryEntry[] {
-  // ---- SWITCH POINT: the sim's own record, once members carry one, wins over the client's notes.
-  const own = (m as Member & { history?: HistoryEntry[] }).history;
-  if (Array.isArray(own) && own.length) return own.slice();
-  const out = chronicle.entries(m.id);
+  // The sim's own record (relationships, deaths, wounds it saw) plus what the client noticed itself.
+  const own = Array.isArray(m.history) ? m.history.slice() : [];
+  const out = own.concat(chronicle.entries(m.id).filter((e) => !own.some((o) => o.day === e.day && o.text === e.text)));
   if (m.dying && m.dyingSince && !out.some((e) => /dying/i.test(e.text))) out.push({ day: m.dyingSince, text: "Lay dying." });
-  return out;
+  return out.sort((x, y) => x.day - y.day);
 }
 
 // ---------------------------------------------------------------- profile
