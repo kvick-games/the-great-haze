@@ -1263,11 +1263,29 @@ export class Director {
     return width / 2 / Math.tan(h / 2);
   }
 
+  /**
+   * Upright phone: the whole line would be a row of specks. Track the lead wagon and the oxen from
+   * ahead and to the side (a close three-quarter), where they can be read. u drifts the camera along.
+   */
+  private travelTall(u: number): { pos: THREE.Vector3; target: THREE.Vector3; fov: number } {
+    const tr = this.world.train;
+    const focus = tr.d - WAGON_GAP * 0.35;
+    const dist = Math.min(48, this.fitDist(12, 44));
+    const s = focus + dist * 0.7 + lerp(-2, 2, u);
+    const pos = lift(roadPoint(s).add(roadRight(s).multiplyScalar(dist * 0.65)), 1.6);
+    pos.y = Math.max(pos.y, 2.3 + u * 0.5);
+    const aim = roadPoint(focus + lerp(1.5, -1.5, u));
+    // The verge rises beside the road; keep the view level rather than staring at the ground.
+    aim.y = 1.6 + Math.max(0, pos.y - 2.3) * 0.8;
+    return { pos, target: aim, fov: 44 };
+  }
+
   /** Wide side-on dolly: the whole caravan low in frame against the sky. */
   private shotTravelWide(P: () => number): ShotFn {
     return () => {
       const { mid, len } = this.span();
       const u = smoothstep(0, 1, P());
+      if (this.world.rig.camera.aspect < 0.9) return this.travelTall(u);
       const fov = 40;
       const dist = Math.min(90, this.fitDist(len + 12, fov));
       const s = mid + lerp(-len * 0.14, len * 0.14, u);
@@ -1340,6 +1358,7 @@ export class Director {
   /** A slow lateral track on the moving caravan, for the short approach to a road scene. */
   private shotTravelApproach(): ShotFn {
     return (t) => {
+      if (this.world.rig.camera.aspect < 0.9) return this.travelTall(0.5 + Math.sin(t * 0.2) * 0.5);
       const { mid, len } = this.span();
       const dist = Math.min(60, this.fitDist(len + 6, 42));
       const s = mid + Math.sin(t * 0.2) * 2;
@@ -1423,6 +1442,7 @@ export class Director {
     this.shot(this.shotTravelPush(at(0.27, 0.58)), 8, true);
     await w.wait(dur * 0.08);
     // The day's losses happen where the camera is looking.
+    if (losses.wagon) tr.leaveWagon(before.wagons - 1);
     tr.applyHud(hud);
     const tailAt = tr.wagons[Math.max(0, tr.wagonN - 1)].tailWorld();
     const back = new THREE.Vector3(Math.sin(tr.wagons[0].root.rotation.y), 0, Math.cos(tr.wagons[0].root.rotation.y)).multiplyScalar(-1);
@@ -1463,6 +1483,7 @@ export class Director {
     const w = this.world;
     w.train.camp = w.train.campTarget = 0;
     w.sideOn = true;
+    w.rig.setFrame(0, 0, true); // travel is a cinematic: the card is away
     const P = () => u;
     const fn =
       kind === "push" ? this.shotTravelPush(P) : kind === "wheels" ? this.shotTravelWheels(P, wagon) : kind === "back" ? this.shotTravelBack(P) : kind === "dusk" ? this.shotTravelDusk(P) : this.shotTravelWide(P);

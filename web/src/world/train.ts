@@ -132,6 +132,16 @@ export class Train {
     }
   }
 
+  /** A wagon the road has taken: it sags, slews to the verge and is left behind. */
+  private abandoned: { i: number; s: number; pos: THREE.Vector3; yaw: number; t: number } | null = null;
+
+  /** The wagon at this index breaks down where it is. Call before the sim's wagon count is applied. */
+  leaveWagon(i: number): void {
+    if (i < 0 || i >= this.wagons.length) return;
+    const rp = this.wagonRoadPose(i);
+    this.abandoned = { i, s: rp.s, pos: rp.pos.clone(), yaw: rp.yaw, t: 0 };
+  }
+
   setWagons(n: number, condition: number): void {
     this.wagonCount = Math.max(1, Math.min(4, n));
     this.condition = condition;
@@ -398,10 +408,30 @@ export class Train {
     for (let i = 0; i < this.wagons.length; i++) {
       const w = this.wagons[i];
       const on = i < this.wagonCount;
-      w.root.visible = on;
+      const gone = !on && this.abandoned !== null && this.abandoned.i === i && this.d - this.abandoned.s < 140 && this.d >= this.abandoned.s - 1;
+      w.root.visible = on || gone;
       for (const o of this.oxen[i]) o.root.visible = on;
       for (const f of w.torches) f.lit = on && this.torchesLit && this.camp < 0.9;
-      if (!on) continue;
+      if (gone && this.abandoned) {
+        // Breaks down and is left at the roadside while the train plods on.
+        const a = this.abandoned;
+        a.t += dt;
+        const k = smoothstep(0, 1, Math.min(1, a.t / 2.2));
+        const side = 3.4 * k;
+        const p = new THREE.Vector3(a.pos.x + Math.cos(a.yaw) * side, 0, a.pos.z - Math.sin(a.yaw) * side);
+        p.y = terrainHeight(p.x, p.z);
+        w.root.position.copy(p);
+        w.root.rotation.y = a.yaw + 0.45 * k;
+        w.root.rotation.z = -0.13 * k;
+        w.condition = 0.05;
+        w.update(dt, time, 0);
+        continue;
+      }
+      if (!on) {
+        w.root.rotation.z = 0;
+        continue;
+      }
+      w.root.rotation.z = 0;
       const rp = this.wagonRoadPose(i);
       let pos = rp.pos;
       let yaw = rp.yaw;

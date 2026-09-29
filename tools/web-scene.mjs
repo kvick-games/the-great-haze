@@ -15,7 +15,10 @@ const browser = await chromium.launch({ executablePath: exe, args: ["--no-sandbo
 const page = await browser.newPage({ viewport: { width: Number(process.env.W ?? 1280), height: Number(process.env.H ?? 720) } });
 const errors = [];
 page.on("pageerror", (e) => errors.push("pageerror: " + e.message));
-page.on("console", (m) => m.type() === "error" && errors.push("console: " + m.text()));
+page.on("console", (m) => {
+  if (m.type() === "error") errors.push("console: " + m.text());
+  else if (m.type() === "log") console.log("page: " + m.text()); // setup scripts narrate with console.log
+});
 await page.route(/https:\/\/cdn\.jsdelivr\.net\/npm\/three@[^/]+\/(.*)/, (route) => {
   const rel = route.request().url().replace(/https:\/\/cdn\.jsdelivr\.net\/npm\/three@[^/]+\//, "");
   route.fulfill({ status: 200, contentType: "application/javascript", body: readFileSync(join(root, "node_modules/three", rel)) });
