@@ -162,6 +162,8 @@ export const ENEMIES: Record<string, EnemyDef> = {
     win: "She folds up like wet paper. The fog lets go of the ones she held, and they breathe.",
     fled: "She steps back into the fog with her hands on their shoulders, and the fog closes like a door.",
     loot: [
+      { t: "res", res: "rations", d: [8, 16] },
+      { t: "res", res: "medicine", d: [1, 2] },
       { t: "restore", changed: 0.15 },
       { t: "scene", id: "witch-freed" },
     ],

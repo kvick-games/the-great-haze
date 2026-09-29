@@ -295,7 +295,6 @@ test("named strangers become characters; a stranger who is a named NPC is that N
 test("beats carry the screen's speech, check and route; shots voice them as <d> lines for the right subject", () => {
   const sc = buildScenario("stranger-trap");
   const b = sc.main.beats.find((x) => x.check)!;
-  const ci = sc.main.beats.indexOf(b);
   assert.ok(b, "the quarrel beat has a check");
   assert.equal(b.check?.kind, "calm");
   assert.ok(b.place && b.place.regionId, "route context");

@@ -614,6 +614,7 @@ export function applyEffect(env: Env, e: Effect, notes: string[]): void {
     case "abduct":
     case "restore":
     case "lose":
+    case "giveCrew":
     case "days":
     case "flagSet":
       applyWitchEffect(env, e, notes);

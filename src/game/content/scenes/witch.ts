@@ -218,18 +218,18 @@ function offers(tier: "table" | "ring"): OptionDef[] {
     {
       id: "offer-person",
       label: "Give her the weakest of you, to keep her company",
-      hint: "One more person stays behind for good. The train will not forgive it easily.",
+      hint: "One more person stays behind for good. Their spouse, lover or close friends may leave, or never forgive you.",
       hours,
       requires: [{ partyMin: 2 }],
       why: "There is no one left to give.",
       results: {
         any: [
-          r("She picks the one who hurts most, gently, like fruit. They go with her, and the others walk out.", [fx.leave("weakest", "stayed with the witch, in trade"), fx.restore(0.1), fx.nerve("all", -6), fx.trust("all", -6)], [
+          r("She picks the one who hurts most, gently, like fruit. They go with her, and the others walk out.", [fx.giveCrew(), fx.restore(0.1), fx.nerve("all", -6), fx.trust("all", -6)], [
             { who: "stranger", text: "Oh, this one will do nicely. Come, sweet.", mood: "sly", gesture: "beckon" },
             { who: "leader", text: "Walk. Don't look at them. Walk.", mood: "cold", gesture: "turn-away" },
             { who: "other", text: "You sold someone. You sold one of us.", mood: "angry", alt: { pious: "God help us. God help us all." } },
           ], 5, undefined, [{ if: demandIs(3), add: 7 }]),
-          r("She takes the weakest and keeps a captive, too. A price of two, from a bargain of one.", [fx.leave("weakest", "stayed with the witch, in trade"), fx.restore(0.2, 1), fx.nerve("all", -8), fx.trust("all", -8)], [
+          r("She takes the weakest and keeps a captive, too. A price of two, from a bargain of one.", [fx.giveCrew(), fx.restore(0.2, 1), fx.nerve("all", -8), fx.trust("all", -8)], [
             { who: "stranger", text: "A girl's gotta eat, hasn't she?", mood: "sly" },
           ], table ? 1 : bad),
         ],
@@ -249,7 +249,7 @@ export const WITCH_SCENES: SceneDef[] = [
   {
     id: "witch-signs",
     kind: "oddity",
-    weight: 2.5,
+    weight: 1,
     once: true,
     minMile: 60,
     maxMile: 680,
@@ -317,7 +317,7 @@ export const WITCH_SCENES: SceneDef[] = [
   {
     id: "witch-fog-lure",
     kind: "haze",
-    weight: 2,
+    weight: 0.8,
     once: true,
     minMile: 100,
     closeBias: 2,

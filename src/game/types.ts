@@ -178,6 +178,8 @@ export type Effect =
   | { t: "restore"; changed?: number; leave?: number }
   /** The captives are gone for good. `abandon` also costs the train its trust and nerve: they saw you choose. */
   | { t: "lose"; cause?: string; abandon?: boolean }
+  /** Hand the weakest of the crew to the witch as her price; ties decide what it costs. */
+  | { t: "giveCrew"; cause?: string }
   /** Whole days spent off the road: the Haze closes, food and torches burn, the dying may die. */
   | { t: "days"; d: Amount }
   | { t: "mark"; who: Who; mark: Mark; chance?: number }

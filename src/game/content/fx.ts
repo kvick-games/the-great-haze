@@ -35,6 +35,7 @@ export const fx = {
   abduct: (ward = false): Effect => ({ t: "abduct", ward }),
   restore: (changed = 0.3, leave = 0): Effect => ({ t: "restore", changed, leave }),
   lose: (cause = "kept by the witch", abandon = false): Effect => ({ t: "lose", cause, abandon }),
+  giveCrew: (cause = "stayed with the witch, in trade"): Effect => ({ t: "giveCrew", cause }),
   days: (d: Amount): Effect => ({ t: "days", d }),
   mark: (who: Who, mark: Mark, chance?: number): Effect => ({ t: "mark", who, mark, chance }),
   set: (key: string, v: Amount, day = false): Effect => ({ t: "flagSet", key, v, day }),

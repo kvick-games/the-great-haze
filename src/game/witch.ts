@@ -15,14 +15,15 @@
 //   witch:lost / witch:rescued / witch:abandoned   counters for hauntings and epilogues
 //   witch:haunts   how many times a lost voice has called from the fog
 //
-// TODO(relationships): abandoning or trading a person should sour the specific
-// bonds and romances the taken one had. Until src/game/relationships.ts exists this
-// only moves the generic bond and trust numbers below.
+// Ties (see relationships.ts): losing or trading someone hits their spouse, lover
+// and close friends harder, writes history lines, and sours those ties to the
+// wagon-master; a rescue with a close one aboard goes better.
 
 import type { Effect, GameState, Mark, Member } from "./types.ts";
 import type { Env } from "./effects.ts";
 import { changeNerve, exposeToFog, killMember } from "./effects.ts";
-import { bond, clamp, firstName, hasMark, hasTrait, living } from "./party.ts";
+import { addBond, bond, clamp, firstName, hasMark, hasTrait, leader, living, remember } from "./party.ts";
+import { changeKind, kindOf, onDeath, onDeparture } from "./relationships.ts";
 import { RATIONS, TUNING, zoneOf } from "./tuning.ts";
 import { baseHazeMiles, catchupMiles } from "./travel.ts";
 
@@ -69,6 +70,17 @@ export function resistBonus(s: GameState, m: Member, ward: boolean): number {
   return b;
 }
 
+type Tie = "couple" | "close" | "friend" | "none";
+
+/** What two people are to each other, as far as the witch storyline cares. */
+function tieOf(s: GameState, a: Member, b: Member): Tie {
+  const k = kindOf(s, a.id, b.id);
+  if (k === "spouses" || k === "lovers" || k === "courting") return "couple";
+  if (k === "close-friend") return "close";
+  if (k === "friend") return "friend";
+  return "none";
+}
+
 function abduct(env: Env, ward: boolean, notes: string[]): void {
   const { s, rng } = env;
   const pool = living(s).filter((m) => !m.isLeader);
@@ -102,9 +114,17 @@ function abduct(env: Env, ward: boolean, notes: string[]): void {
   s.flags["witch:demand"] = rng.int(0, 3);
   notes.push(`The witch takes ${nameList(chosen.map((x) => x.m))}.`);
   if (resisted.length) notes.push(`${nameList(resisted)} held fast against her voice.`);
+  for (const { m } of chosen) remember(s, m, "Taken by the witch.");
   for (const other of living(s)) {
     let loss = 4;
-    for (const { m } of chosen) if (bond(s, other.id, m.id) >= 40) loss += 5;
+    for (const { m } of chosen) {
+      const tie = other.isLeader ? "none" : tieOf(s, other, m);
+      if (tie === "couple") {
+        loss += 8;
+        remember(s, other, `Watched ${firstName(m)} taken by the witch.`);
+      } else if (tie === "close") loss += 4;
+      else if (bond(s, other.id, m.id) >= 40) loss += 3;
+    }
     changeNerve(other, -loss);
   }
   notes.push("Everyone else: nerve falls");
@@ -146,9 +166,26 @@ function restore(env: Env, changed: number, leave: number, notes: string[]): voi
     m.health = Math.max(20, Math.round(m.maxHealth * 0.5));
     m.nerve = clamp(Math.min(m.nerve, 40) - 10, 5, 100);
     m.trust = clamp(m.trust + 8, 0, 100);
+    // Someone close aboard makes the coming-back easier: they are met at the wagons, and the hex takes less hold.
+    const close = living(s).filter((o) => o.id !== m.id && !o.isLeader && (tieOf(s, o, m) === "couple" || tieOf(s, o, m) === "close"));
+    const bonus = close.length > 0;
+    if (bonus) {
+      m.health = Math.min(m.maxHealth, m.health + Math.round(m.maxHealth * 0.15));
+      m.nerve = clamp(m.nerve + 12, 5, 100);
+      for (const o of close) {
+        addBond(s, o.id, m.id, 10);
+        remember(s, o, `Met ${firstName(m)} at the wagons when they came back from the witch.`);
+      }
+      notes.push(`${firstName(m)} is met by ${nameList(close)}, and mends faster.`);
+    }
+    remember(s, m, "Came back from the witch's hollow.");
+    remember(s, leader(s), `Got ${firstName(m)} back from the witch.`);
     s.flags["witch:rescued"] = (s.flags["witch:rescued"] ?? 0) + 1;
     notes.push(`${m.name} comes back to the wagons, weak, and quiet.`);
-    if (rng.chance(changed)) applyMark(m, rng.chance(0.6) ? "hexed" : "witch-touched", notes);
+    if (rng.chance(bonus ? changed * 0.5 : changed)) {
+      const mark: Mark = rng.chance(0.6) ? "hexed" : "witch-touched";
+      if (applyMark(m, mark, notes)) remember(s, m, mark === "hexed" ? "The witch left a hex on them." : "The witch left her touch on them. They hear the fog.");
+    }
   }
   if (back.length) {
     for (const other of living(s)) if (!back.includes(other)) changeNerve(other, 5);
@@ -167,17 +204,86 @@ function lose(env: Env, who: Member[], cause: string, abandon: boolean, notes: s
     s.flags["witch:lost"] = (s.flags["witch:lost"] ?? 0) + 1;
     if (abandon) s.flags["witch:abandoned"] = (s.flags["witch:abandoned"] ?? 0) + 1;
     notes.push(`${m.name} is lost to the witch.`);
+    remember(s, m, abandon ? "Left to the witch." : "Kept by the witch.");
+    remember(s, leader(s), abandon ? `Left ${firstName(m)} to the witch.` : `Lost ${firstName(m)} to the witch.`);
     for (const other of living(s)) {
       let loss = abandon ? 5 : 4;
-      if (bond(s, other.id, m.id) >= 40) loss += 6;
+      const tie = other.isLeader ? "none" : tieOf(s, other, m);
+      if (tie === "couple") loss += abandon ? 10 : 6;
+      else if (tie === "close") loss += abandon ? 5 : 3;
+      else if (bond(s, other.id, m.id) >= 40) loss += 4;
       if (hasTrait(other, "kind") || hasTrait(other, "pious")) loss += 3;
       changeNerve(other, -loss);
-      // TODO(relationships): a lover or a sworn friend of the lost should take this harder and remember who chose.
-      if (abandon && !other.isLeader) other.trust = clamp(other.trust - 6, 0, 100);
+      if (abandon && !other.isLeader) {
+        other.trust = clamp(other.trust - 6, 0, 100);
+        remember(s, other, `${firstName(m)} was left to the witch.`);
+        if (tie === "couple" || tie === "close") {
+          // They saw who chose. It is not forgotten.
+          const couple = tie === "couple";
+          addBond(s, leader(s).id, other.id, couple ? -25 : -12);
+          other.trust = clamp(other.trust - (couple ? 14 : 6), 0, 100);
+          remember(s, other, couple ? `Will not forgive the wagon-master for leaving ${firstName(m)}.` : `Cannot look at the wagon-master since ${firstName(m)} was left.`);
+        }
+      }
     }
+    // The ones who loved them grieve on the ordinary path (nerve, and a grief scene).
+    onDeath(env, m);
   }
   if (who.length) notes.push(abandon ? "Everyone: trust and nerve fall (they saw you choose)" : "Everyone: nerve falls");
   finishStory(s);
+}
+
+/**
+ * Her price is one of the crew: the weakest goes. Ties decide the cost. A spouse or lover
+ * left behind either follows in the night or stays and never forgives; close friends
+ * turn cold. Deterministic under the run's seed.
+ */
+function giveCrew(env: Env, cause: string, notes: string[]): void {
+  const { s, rng } = env;
+  const pool = living(s).filter((m) => !m.isLeader);
+  if (!pool.length) return;
+  const target = pool.reduce((w, m) => (m.health < w.health ? m : w), pool[0]);
+  target.alive = false;
+  target.dying = false;
+  target.fate = cause;
+  s.stats.departures++;
+  notes.push(`${target.name} is gone: ${cause}.`);
+  remember(s, target, `Given to the witch: ${cause}.`);
+  const lead = leader(s);
+  remember(s, lead, `Gave ${firstName(target)} to the witch.`);
+  const others = living(s);
+  for (const o of others) remember(s, o, `${firstName(target)} was given to the witch.`);
+  const before = s.queue.length;
+  onDeparture(env, target);
+  // Followers are decided here, not by the generic lover-follows scene.
+  s.queue = s.queue.filter((q, i) => i < before || !(q.t === "scene" && q.id === "rel-lover-follows"));
+  for (const o of others) {
+    if (o.isLeader || !o.alive) continue;
+    const tie = tieOf(s, o, target);
+    if (tie === "couple") {
+      if (rng.chance(0.5)) {
+        o.alive = false;
+        o.dying = false;
+        o.fate = "left in the night, after their own was given to the witch";
+        s.stats.departures++;
+        notes.push(`${o.name} is gone: ${o.fate}.`);
+        remember(s, o, `Left the train after ${firstName(target)} was given to the witch.`);
+        remember(s, lead, `${firstName(o)} left after I gave ${firstName(target)} away.`);
+      } else {
+        changeKind(s, o, target, "estranged");
+        addBond(s, lead.id, o.id, -40);
+        o.trust = clamp(Math.min(o.trust, 8), 0, 100);
+        changeNerve(o, -25);
+        remember(s, o, `Will never forgive the wagon-master for giving ${firstName(target)} to the witch.`);
+        notes.push(`${firstName(o)} will not forgive this. (a lasting rift)`);
+      }
+    } else if (tie === "close") {
+      addBond(s, lead.id, o.id, -15);
+      o.trust = clamp(o.trust - 18, 0, 100);
+      changeNerve(o, -10);
+      remember(s, o, `Cannot look at the wagon-master since ${firstName(target)} was given away.`);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -234,6 +340,9 @@ export function applyWitchEffect(env: Env, e: Effect, notes: string[]): boolean 
       return true;
     case "lose":
       lose(env, captivesOf(s), e.cause ?? "kept by the witch", e.abandon === true, notes);
+      return true;
+    case "giveCrew":
+      giveCrew(env, e.cause ?? "stayed with the witch, in trade", notes);
       return true;
     case "days":
       daysAway(env, rng.amount(e.d), notes);
