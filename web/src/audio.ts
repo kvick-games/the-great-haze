@@ -21,6 +21,8 @@ export class Audio {
   private crackleAcc = 0;
   private creakAcc = 0;
   on = false;
+  /** 0-1: how much the adaptive music is carrying the Haze. Its dread layer replaces most of this drone. */
+  musicBed = 0;
   private unavailable = false;
 
   private init(): boolean {
@@ -128,7 +130,7 @@ export class Audio {
     const t = this.ctx.currentTime;
     this.windGain.gain.setTargetAtTime(0.05 + 0.05 * mood.night + 0.06 * mood.haze, t, 0.5);
     this.windFilter.frequency.setTargetAtTime(300 + 500 * (0.5 + 0.5 * Math.sin(t * 0.13)) + 400 * mood.haze, t, 0.8);
-    this.droneGain.gain.setTargetAtTime(0.02 + 0.3 * mood.haze * mood.haze, t, 1.2);
+    this.droneGain.gain.setTargetAtTime((0.02 + 0.3 * mood.haze * mood.haze) * (1 - 0.7 * this.musicBed), t, 1.2);
     this.rumbleGain.gain.setTargetAtTime(0.28 * mood.moving, t, 0.3);
     this.crackleAcc += dt * 9 * mood.camp;
     while (this.crackleAcc > 1) {

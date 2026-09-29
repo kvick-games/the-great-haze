@@ -5,12 +5,14 @@
 //   npm run web:build -- --inline     bundle Three.js too, for fully offline use
 //
 // By default Three.js is loaded from jsDelivr at the exact installed version.
+// The adaptive music host comes from a DreamEngine checkout (tools/music-engine.ts).
 
 import { build } from "esbuild";
 import type { Plugin } from "esbuild";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { musicEnginePlugin } from "../tools/music-engine.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
@@ -25,6 +27,7 @@ const threeFromCdn: Plugin = {
   },
 };
 
+let musicFrom: string | null = null;
 const result = await build({
   entryPoints: [join(here, "src/main.ts")],
   bundle: true,
@@ -33,7 +36,7 @@ const result = await build({
   minify: true,
   write: false,
   legalComments: "none",
-  plugins: inline ? [] : [threeFromCdn],
+  plugins: [...(inline ? [] : [threeFromCdn]), musicEnginePlugin((host) => (musicFrom = host))],
   define: { __THREE_URL__: JSON.stringify(THREE_URL) },
 });
 const js = result.outputFiles[0].text;
@@ -56,3 +59,4 @@ mkdirSync(join(root, "dist"), { recursive: true });
 writeFileSync(join(root, "dist/the-great-haze.html"), full);
 writeFileSync(join(root, "dist/the-great-haze.artifact.html"), fragment);
 console.log(`built dist/the-great-haze.html (${Math.round(full.length / 1024)} KB, three ${inline ? "inlined" : `from ${THREE_URL}`})`);
+console.log(musicFrom ? `music: ${musicFrom}` : "music: no DreamEngine music package found (set DREAMENGINE_DIR); built without a soundtrack");

@@ -7,12 +7,14 @@ import { Director } from "./director.ts";
 import { Audio } from "./audio.ts";
 import { voice } from "./talk/voice.ts";
 import { PortraitStudio } from "./ui/portraits.ts";
+import { GameMusic } from "./music/controller.ts";
+import { mountMusicControl } from "./music/control.ts";
 import type { Figure } from "./world/actors.ts";
 import { ROSTER } from "../../src/game/content/roster.ts";
 
 declare global {
   interface Window {
-    __haze?: { booted: boolean; director: Director; world: World };
+    __haze?: { booted: boolean; director: Director; world: World; music: GameMusic };
   }
 }
 
@@ -43,23 +45,30 @@ function boot(): void {
     return;
   }
   const audio = new Audio();
+  const music = new GameMusic();
+  /** Sound and music start together on a gesture; the master sound switch mutes both. */
+  const wakeSound = () => {
+    audio.wake();
+    music.setSound(audio.on);
+    music.wake();
+  };
   let director: Director;
   const portraits = new PortraitStudio();
   const ui = new UI(root, {
     choose: (id) => {
-      audio.wake();
+      wakeSound();
       void director.act(id);
     },
     trade: (item, qty) => void director.trade(item, qty),
     start: (opts) => {
-      audio.wake();
+      wakeSound();
       ui.setSound(audio.on);
       ui.hideTitle();
       void director.newGame(opts);
     },
     resume: () => {
       const saved = Director.saved();
-      audio.wake();
+      wakeSound();
       ui.setSound(audio.on);
       if (!saved) {
         // Finished or abandoned in another tab since the title appeared.
@@ -95,7 +104,12 @@ function boot(): void {
     state: () => director?.game?.s ?? null,
     portrait: (spec) => portraits.get(spec),
     hoverMember: (id) => director.highlight(id),
-    toggleSound: () => audio.toggle(),
+    toggleSound: () => {
+      const on = audio.toggle();
+      music.setSound(on);
+      if (on) music.wake();
+      return on;
+    },
     toggleVoice: () => voice.toggle(),
     voiceOn: () => voice.enabled,
     toggleQuality: () => {
@@ -110,6 +124,7 @@ function boot(): void {
     },
   });
   director = new Director(world, ui, audio);
+  mountMusicControl(root, music);
   director.titleScene();
   const saved = Director.saved();
   ui.showTitle(saved ? { day: saved.day, miles: saved.miles } : null);
@@ -190,12 +205,15 @@ function boot(): void {
 
   let last = performance.now();
   const loop = (now: number) => {
-    world.frame((now - last) / 1000);
+    const dt = (now - last) / 1000;
+    world.frame(dt);
+    music.update(Math.min(dt, 0.5), director, world);
+    audio.musicBed = music.audible ? 1 : 0;
     last = now;
     requestAnimationFrame(loop);
   };
   requestAnimationFrame(loop);
-  window.__haze = { booted: true, director, world };
+  window.__haze = { booted: true, director, world, music };
 }
 
 boot();

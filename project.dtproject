@@ -5,9 +5,9 @@
   "id": "the-great-haze",
   "name": "The Great Haze",
   "description": "Working title. A horror survival migration game beneath a blood-red sky. Initial project setup only.",
-  "revision": 58,
+  "revision": 59,
   "created_at": "2026-09-28T18:50:52.266Z",
-  "updated_at": "2026-09-29T02:45:24.187Z",
+  "updated_at": "2026-09-29T03:48:23.998Z",
   "storage": {
     "default_import_root": "assets"
   },
@@ -45,6 +45,12 @@
         "wiki_149ccab76e294a08917e74c2d3d713ae",
         "wiki_391410254a5941e7b9bcb31b7f1bf1cc",
         "wiki_1967cbc301584453a9fdec78c0078281"
+      ],
+      "primary_asset_id": null
+    },
+    "waver": {
+      "asset_ids": [
+        "score:waver:the-great-haze"
       ],
       "primary_asset_id": null
     }
@@ -817,6 +823,27 @@
       ],
       "created_at": "2026-09-29T02:42:29.248Z",
       "updated_at": "2026-09-29T02:43:23.316Z"
+    },
+    {
+      "id": "score:waver:the-great-haze",
+      "kind": "document.waver.music-score",
+      "name": "The Great Haze soundtrack score",
+      "owner": "waver",
+      "role": "source",
+      "media_type": "application/json",
+      "tags": [],
+      "storage": {
+        "mode": "managed",
+        "path": "assets/music/the-great-haze.dtscore.json",
+        "path_kind": "file"
+      },
+      "integrity": {
+        "sha256": "c1e81be97641f9c55a0751084b5a188f65409c235288488df3582749f13a4692",
+        "size": 25754
+      },
+      "relationships": [],
+      "created_at": "2026-09-29T03:48:23.992Z",
+      "updated_at": "2026-09-29T03:48:23.998Z"
     }
   ]
 }

@@ -1,0 +1,233 @@
+{
+  "schema": "dreamatron.music-score/1",
+  "id": "the-great-haze",
+  "name": "The Great Haze",
+  "description": "Adaptive score. States: scene (title, muster, town, trail, camp, scene, fork, landmark, combat, ending), region, scenario, focus, ending (victory, loss), mourning (yes, no). Parameters: haze (how close the Haze is), danger, intensity, night. The trail theme recurs in every section in that section's key and mode; the Haze motif is a rising minor second.",
+  "seed": 1848,
+  "bpm": 80,
+  "beatsPerBar": 4,
+  "stepsPerBeat": 4,
+  "key": { "root": "D", "scale": "minor" },
+  "mix": { "gain": 0.65, "reverbSeconds": 3.4, "reverbGain": 0.4 },
+
+  "parameters": {
+    "haze": { "default": 0, "min": 0, "max": 1 },
+    "danger": { "default": 0, "min": 0, "max": 1 },
+    "intensity": { "default": 0.3, "min": 0, "max": 1 },
+    "night": { "default": 0, "min": 0, "max": 1 }
+  },
+  "states": { "scene": "title", "region": "tallow", "scenario": "none", "focus": "none", "ending": "none", "mourning": "no" },
+
+  "instruments": {
+    "fiddle": { "kind": "synth", "label": "Fiddle", "voice": { "waveform": "sawtooth", "attack": 0.07, "decay": 0.2, "sustain": 0.7, "release": 0.35, "filterHz": 2200, "gain": 0.12 }, "detune": 5, "vibrato": { "rate": 5.4, "depth": 14 }, "pan": -0.15, "reverb": 0.4 },
+    "reed": { "kind": "synth", "label": "Pump organ", "voice": { "waveform": "square", "attack": 0.35, "decay": 0.4, "sustain": 0.8, "release": 0.9, "filterHz": 900, "gain": 0.07 }, "detune": 7, "pan": 0.1, "reverb": 0.45 },
+    "pluck": { "kind": "synth", "label": "Banjo", "voice": { "waveform": "triangle", "attack": 0.004, "decay": 0.22, "sustain": 0.08, "release": 0.3, "filterHz": 3400, "gain": 0.2 }, "pan": 0.3, "reverb": 0.25 },
+    "bass": { "kind": "synth", "label": "Upright bass", "voice": { "waveform": "triangle", "attack": 0.01, "decay": 0.3, "sustain": 0.5, "release": 0.25, "filterHz": 520, "gain": 0.3 }, "pan": 0, "reverb": 0.1 },
+    "choir": { "kind": "synth", "label": "Hum", "voice": { "waveform": "triangle", "attack": 0.9, "decay": 0.6, "sustain": 0.85, "release": 1.8, "filterHz": 1500, "gain": 0.1 }, "detune": 9, "vibrato": { "rate": 4.2, "depth": 8 }, "pan": -0.05, "reverb": 0.6 },
+    "bell": { "kind": "synth", "label": "Bell", "voice": { "waveform": "sine", "attack": 0.002, "decay": 1.6, "sustain": 0, "release": 2.2, "filterHz": 6000, "gain": 0.18 }, "pan": 0.2, "reverb": 0.55 },
+    "dread": { "kind": "synth", "label": "Dread", "voice": { "waveform": "sawtooth", "attack": 2.4, "decay": 1, "sustain": 0.9, "release": 3.2, "filterHz": 520, "gain": 0.18 }, "detune": 14, "pan": 0, "reverb": 0.5 },
+    "breath": { "kind": "noise", "label": "Breath of the Haze", "filterHz": 420, "q": 1.4, "attack": 1.8, "release": 2.6, "gain": 0.2, "pan": -0.2, "reverb": 0.6 },
+    "drums": { "kind": "drums", "label": "Frame drum", "kit": { "kit": "deep", "kickGain": 0.9, "snareGain": 0.45, "hatGain": 0.22, "decay": 0.9, "tone": 0.35, "gain": 0.6 }, "pan": 0, "reverb": 0.2 }
+  },
+
+  "motifs": {
+    "trail": { "label": "The trail (main theme)", "lengthSteps": 32, "anchor": 3, "notes": [
+      { "step": 0, "len": 4, "degree": 0 }, { "step": 4, "len": 4, "degree": 2 }, { "step": 8, "len": 6, "degree": 4 }, { "step": 14, "len": 2, "degree": 3 },
+      { "step": 16, "len": 4, "degree": 2 }, { "step": 20, "len": 4, "degree": 1 }, { "step": 24, "len": 8, "degree": 0 } ] },
+    "trail-answer": { "label": "The trail, answering phrase", "lengthSteps": 32, "anchor": 2, "notes": [
+      { "step": 0, "len": 4, "degree": 4 }, { "step": 4, "len": 4, "degree": 5 }, { "step": 8, "len": 6, "degree": 7 }, { "step": 14, "len": 2, "degree": 5 },
+      { "step": 16, "len": 4, "degree": 4 }, { "step": 20, "len": 4, "degree": 3 }, { "step": 24, "len": 8, "degree": 4 } ] },
+    "haze": { "label": "The Haze", "lengthSteps": 32, "anchor": 3, "notes": [
+      { "step": 0, "len": 8, "degree": 0, "velocity": 0.7 }, { "step": 8, "len": 8, "degree": 0, "alter": 1, "velocity": 0.8 }, { "step": 16, "len": 6, "degree": 0 }, { "step": 22, "len": 10, "degree": -3, "alter": 1, "velocity": 0.6 } ] },
+
+    "mattie": { "label": "Mattie", "lengthSteps": 16, "anchor": 2, "notes": [
+      { "step": 0, "len": 3, "degree": 4 }, { "step": 3, "len": 1, "degree": 3 }, { "step": 4, "len": 4, "degree": 2 }, { "step": 8, "len": 8, "degree": 3 } ] },
+    "juniper": { "label": "Juniper", "lengthSteps": 16, "anchor": 3, "notes": [
+      { "step": 0, "len": 2, "degree": 7 }, { "step": 2, "len": 2, "degree": 4 }, { "step": 4, "len": 2, "degree": 5 }, { "step": 6, "len": 2, "degree": 4 }, { "step": 8, "len": 8, "degree": 7 } ] },
+    "thaddeus": { "label": "Thaddeus", "lengthSteps": 16, "anchor": 3, "notes": [
+      { "step": 0, "len": 3, "degree": 0 }, { "step": 3, "len": 1, "degree": 0 }, { "step": 4, "len": 4, "degree": 4 }, { "step": 8, "len": 8, "degree": 2 } ] },
+    "birdie": { "label": "Birdie", "lengthSteps": 16, "anchor": 3, "notes": [
+      { "step": 0, "len": 2, "degree": 2 }, { "step": 2, "len": 2, "degree": 4 }, { "step": 4, "len": 2, "degree": 2 }, { "step": 6, "len": 2, "degree": 5 }, { "step": 8, "len": 8, "degree": 4 } ] },
+    "ambrose": { "label": "Ambrose", "lengthSteps": 16, "anchor": 3, "notes": [
+      { "step": 0, "len": 4, "degree": 0 }, { "step": 4, "len": 4, "degree": 4 }, { "step": 8, "len": 8, "degree": 7 } ] },
+    "rue": { "label": "Rue", "lengthSteps": 16, "anchor": 3, "notes": [
+      { "step": 0, "len": 3, "degree": 0 }, { "step": 3, "len": 3, "degree": 2 }, { "step": 6, "len": 2, "degree": 1 }, { "step": 8, "len": 8, "degree": 0 } ] },
+    "orin": { "label": "Orin", "lengthSteps": 16, "anchor": 2, "notes": [
+      { "step": 0, "len": 4, "degree": 4 }, { "step": 4, "len": 4, "degree": 3 }, { "step": 8, "len": 4, "degree": 2 }, { "step": 12, "len": 4, "degree": 1 } ] },
+    "hollis": { "label": "Hollis", "lengthSteps": 16, "anchor": 3, "notes": [
+      { "step": 0, "len": 2, "degree": 0 }, { "step": 2, "len": 2, "degree": 0 }, { "step": 4, "len": 2, "degree": 0 }, { "step": 6, "len": 10, "degree": 4 } ] },
+    "nell": { "label": "Nell", "lengthSteps": 16, "anchor": 2, "notes": [
+      { "step": 0, "len": 4, "degree": 5 }, { "step": 4, "len": 4, "degree": 4 }, { "step": 8, "len": 4, "degree": 2 }, { "step": 12, "len": 4, "degree": 4 } ] },
+    "witch": { "label": "The witch", "lengthSteps": 32, "anchor": 3, "notes": [
+      { "step": 0, "len": 6, "degree": 0 }, { "step": 6, "len": 2, "degree": 1, "alter": -1 }, { "step": 8, "len": 8, "degree": 3, "alter": 1 }, { "step": 16, "len": 6, "degree": 2 }, { "step": 22, "len": 10, "degree": 0 } ] },
+
+    "stranger": { "label": "A stranger on the road", "lengthSteps": 16, "anchor": 2, "notes": [
+      { "step": 0, "len": 4, "degree": 0 }, { "step": 4, "len": 4, "degree": 4 }, { "step": 8, "len": 4, "degree": 3 }, { "step": 12, "len": 4, "degree": 1 } ] },
+    "hazard": { "label": "Hazard", "lengthSteps": 16, "anchor": 3, "notes": [
+      { "step": 0, "len": 2, "degree": 0 }, { "step": 4, "len": 2, "degree": 0 }, { "step": 8, "len": 2, "degree": 0 }, { "step": 12, "len": 4, "degree": 1 } ] },
+    "find": { "label": "A find", "lengthSteps": 16, "anchor": 2, "notes": [
+      { "step": 0, "len": 2, "degree": 0 }, { "step": 2, "len": 2, "degree": 2 }, { "step": 4, "len": 2, "degree": 4 }, { "step": 6, "len": 10, "degree": 7 } ] },
+    "crisis": { "label": "Crisis", "lengthSteps": 16, "anchor": 3, "notes": [
+      { "step": 0, "len": 2, "degree": 7 }, { "step": 2, "len": 2, "degree": 6 }, { "step": 4, "len": 2, "degree": 4 }, { "step": 6, "len": 2, "degree": 3 }, { "step": 8, "len": 8, "degree": 0, "alter": 1 } ] },
+    "respite": { "label": "Respite", "lengthSteps": 32, "anchor": 3, "notes": [
+      { "step": 0, "len": 6, "degree": 4 }, { "step": 6, "len": 2, "degree": 2 }, { "step": 8, "len": 8, "degree": 3 }, { "step": 16, "len": 6, "degree": 1 }, { "step": 22, "len": 10, "degree": 0 } ] },
+    "dispute": { "label": "Dispute", "lengthSteps": 16, "anchor": 3, "notes": [
+      { "step": 0, "len": 2, "degree": 0 }, { "step": 2, "len": 2, "degree": 1 }, { "step": 4, "len": 2, "degree": 0 }, { "step": 6, "len": 2, "degree": -1 }, { "step": 8, "len": 8, "degree": 0 } ] },
+    "oddity": { "label": "Oddity", "lengthSteps": 16, "anchor": 2, "notes": [
+      { "step": 0, "len": 4, "degree": 0 }, { "step": 4, "len": 4, "degree": 1 }, { "step": 8, "len": 4, "degree": 2, "alter": 1 }, { "step": 12, "len": 4, "degree": 3, "alter": 1 } ] },
+    "landmark": { "label": "Landmark", "lengthSteps": 16, "anchor": 4, "notes": [
+      { "step": 0, "len": 4, "degree": 0 }, { "step": 4, "len": 4, "degree": 4 }, { "step": 8, "len": 4, "degree": 7 }, { "step": 12, "len": 4, "degree": 4 } ] },
+    "fork": { "label": "The fork", "lengthSteps": 16, "anchor": 2, "notes": [
+      { "step": 0, "len": 4, "degree": 0 }, { "step": 4, "len": 4, "degree": 2 }, { "step": 8, "len": 4, "degree": 4 }, { "step": 12, "len": 4, "degree": 3 } ] },
+    "grief": { "label": "Grief", "lengthSteps": 32, "anchor": 3, "notes": [
+      { "step": 0, "len": 8, "degree": 4 }, { "step": 8, "len": 4, "degree": 3 }, { "step": 12, "len": 4, "degree": 2 }, { "step": 16, "len": 8, "degree": 1 }, { "step": 24, "len": 8, "degree": 0 } ] },
+    "toll": { "label": "Toll", "lengthSteps": 16, "anchor": 2, "notes": [
+      { "step": 0, "len": 8, "degree": 0, "velocity": 0.9 }, { "step": 8, "len": 8, "degree": -3, "velocity": 0.7 } ] }
+  },
+
+  "overlays": [
+    { "id": "haze-drone", "kind": "drone", "instrument": "dread", "sections": ["trail-*", "camp", "fork", "scene"], "degree": 0, "fifth": false, "span": "phrase", "when": [{ "param": "haze", "min": 0.15 }], "gainFrom": { "param": "haze", "from": [0.15, 1], "to": [0.3, 1.6] } },
+    { "id": "haze-breath", "kind": "texture", "instrument": "breath", "sections": ["trail-*", "camp", "fork"], "rate": 8, "density": 0.2, "densityFrom": { "param": "haze", "from": [0.3, 1], "to": [0.1, 0.7] }, "range": [0, 7], "durationSteps": 10, "octave": 4, "when": [{ "param": "haze", "min": 0.3 }] },
+    { "id": "haze-motif", "kind": "motif", "instrument": "dread", "sections": ["trail-*", "camp", "fork"], "motif": "haze", "at": [4], "octave": 3, "variation": 0.2, "gain": 1.4, "when": [{ "param": "haze", "min": 0.5 }] },
+    { "id": "night-bell", "kind": "texture", "instrument": "bell", "sections": ["trail-*"], "rate": 8, "density": 0.12, "range": [0, 7], "durationSteps": 8, "octave": 5, "gain": 0.6, "when": [{ "param": "night", "min": 0.55 }] }
+  ],
+
+  "sections": {
+    "title": { "label": "Title", "key": { "root": "D", "scale": "minor" }, "bpm": 60, "phraseBars": 8, "progression": ["i", ".", "VI", ".", "iv", ".", "V", "."], "layers": [
+      { "id": "pad", "kind": "chords", "instrument": "reed", "voicing": "open", "gain": 0.8 },
+      { "id": "drone", "kind": "drone", "instrument": "dread", "degree": 0, "gain": 0.35 },
+      { "id": "theme", "kind": "motif", "instrument": "fiddle", "motif": "trail", "at": [2], "timeScale": 2, "variation": 0, "octave": 4 },
+      { "id": "haze", "kind": "motif", "instrument": "dread", "motif": "haze", "at": [0], "octave": 3, "every": 2, "offset": 1, "gain": 1.2 } ] },
+
+    "muster": { "label": "Muster", "key": { "root": "D", "scale": "dorian" }, "bpm": 84, "phraseBars": 8, "progression": ["i", "IV", "i", "VII", "i", "IV", "v", "i"], "layers": [
+      { "id": "strum", "kind": "chords", "instrument": "pluck", "rhythm": [0, 6, 8, 12], "voicing": "close" },
+      { "id": "bass", "kind": "bass", "instrument": "bass", "rhythm": [0, 8], "fifths": true },
+      { "id": "theme", "kind": "motif", "instrument": "fiddle", "motif": "trail", "at": [0, 4], "variation": 0.25 },
+      { "id": "pad", "kind": "chords", "instrument": "reed", "gain": 0.5 } ] },
+
+    "town": { "label": "Town", "key": { "root": "D", "scale": "dorian" }, "bpm": 92, "phraseBars": 8, "progression": ["i", "IV", "VII", "i", "i", "IV", "v", "i"], "layers": [
+      { "id": "strum", "kind": "chords", "instrument": "pluck", "rhythm": [0, 4, 8, 10, 12], "voicing": "close" },
+      { "id": "bass", "kind": "bass", "instrument": "bass", "rhythm": [0, 8], "fifths": true },
+      { "id": "answer", "kind": "motif", "instrument": "fiddle", "motif": "trail-answer", "at": [0], "variation": 0.3 },
+      { "id": "theme", "kind": "motif", "instrument": "fiddle", "motif": "trail", "at": [4], "variation": 0.4 } ] },
+
+    "trail-tallow": { "label": "Trail: Tallow Flats", "key": { "root": "D", "scale": "dorian" }, "bpm": 84, "phraseBars": 8, "progression": ["i", ".", "IV", ".", "VII", ".", "i", "v"], "layers": [
+      { "id": "arp", "kind": "chords", "instrument": "pluck", "arp": { "rate": 2, "mode": "updown", "span": 1 }, "gain": 0.8 },
+      { "id": "bass", "kind": "bass", "instrument": "bass", "rhythm": [0, 8], "fifths": true },
+      { "id": "theme", "kind": "motif", "instrument": "fiddle", "motif": "trail", "at": [0], "variation": 0.3 },
+      { "id": "answer", "kind": "motif", "instrument": "fiddle", "motif": "trail-answer", "at": [4], "variation": 0.3, "every": 2 },
+      { "id": "walk", "kind": "perc", "instrument": "drums", "kick": [0, 8], "hat": { "hits": 3, "steps": 8 }, "gain": 0.5, "gainFrom": { "param": "intensity", "from": [0, 1], "to": [0.2, 1] } } ] },
+
+    "trail-fen": { "label": "Trail: the Fen", "key": { "root": "D", "scale": "minor" }, "bpm": 72, "phraseBars": 8, "progression": ["i", ".", "VI", ".", "iv", ".", "i", "VII"], "layers": [
+      { "id": "pad", "kind": "chords", "instrument": "reed", "voicing": "open", "gain": 0.9 },
+      { "id": "drops", "kind": "texture", "instrument": "pluck", "rate": 4, "density": 0.35, "range": [0, 9], "durationSteps": 2, "octave": 4 },
+      { "id": "theme", "kind": "motif", "instrument": "reed", "motif": "trail", "at": [2], "octave": 4, "variation": 0.45, "gain": 1.6 },
+      { "id": "bass", "kind": "bass", "instrument": "bass", "rhythm": [0] } ] },
+
+    "trail-flats": { "label": "Trail: the Salt Flats", "key": { "root": "D", "scale": "mixolydian" }, "bpm": 90, "phraseBars": 8, "progression": ["I", ".", "VII", ".", "IV", ".", "I", "v"], "layers": [
+      { "id": "open", "kind": "drone", "instrument": "reed", "degree": 0, "fifth": true, "octave": 3, "gain": 0.8 },
+      { "id": "strum", "kind": "chords", "instrument": "pluck", "rhythm": { "hits": 5, "steps": 16 }, "voicing": "shell" },
+      { "id": "bass", "kind": "bass", "instrument": "bass", "rhythm": { "hits": 3, "steps": 8 }, "fifths": true },
+      { "id": "theme", "kind": "motif", "instrument": "fiddle", "motif": "trail", "at": [0, 4], "variation": 0.35 },
+      { "id": "walk", "kind": "perc", "instrument": "drums", "kick": [0, 6, 8], "hat": { "hits": 5, "steps": 16 }, "gain": 0.6, "gainFrom": { "param": "intensity", "from": [0, 1], "to": [0.3, 1] } } ] },
+
+    "trail-pines": { "label": "Trail: the Pines", "key": { "root": "D", "scale": "minor" }, "bpm": 76, "phraseBars": 8, "progression": ["i", "VII", "VI", "VII", "i", "III", "iv", "V"], "layers": [
+      { "id": "hum", "kind": "chords", "instrument": "choir", "voicing": "open" },
+      { "id": "arp", "kind": "chords", "instrument": "pluck", "arp": { "rate": 4, "mode": "up", "span": 2 }, "gain": 0.6 },
+      { "id": "theme", "kind": "motif", "instrument": "fiddle", "motif": "trail", "at": [0], "timeScale": 2, "variation": 0.2 },
+      { "id": "bells", "kind": "texture", "instrument": "bell", "rate": 8, "density": 0.2, "range": [4, 11], "durationSteps": 8, "octave": 5, "gain": 0.5 } ] },
+
+    "trail-spine": { "label": "Trail: the Spine", "key": { "root": "D", "scale": "harmonicMinor" }, "bpm": 80, "phraseBars": 8, "progression": ["i", ".", "iv", ".", "VI", ".", "V", "."], "layers": [
+      { "id": "drone", "kind": "drone", "instrument": "reed", "degree": 0, "fifth": true, "octave": 2 },
+      { "id": "theme-low", "kind": "motif", "instrument": "bass", "motif": "trail", "at": [0], "octave": 2, "variation": 0.3, "gain": 1.2 },
+      { "id": "answer", "kind": "motif", "instrument": "fiddle", "motif": "trail-answer", "at": [4], "variation": 0.5 },
+      { "id": "march", "kind": "perc", "instrument": "drums", "kick": [0, 4, 8, 12], "snare": [12], "gain": 0.5, "gainFrom": { "param": "intensity", "from": [0, 1], "to": [0.3, 1] } } ] },
+
+    "trail-threshold": { "label": "Trail: the Threshold", "key": { "root": "D", "scale": "phrygian" }, "bpm": 60, "phraseBars": 8, "progression": ["i", ".", "II", ".", "i", ".", "vii°", "."], "layers": [
+      { "id": "pad", "kind": "chords", "instrument": "choir", "voicing": "close", "gain": 0.9 },
+      { "id": "drone", "kind": "drone", "instrument": "dread", "degree": 0, "gain": 0.6 },
+      { "id": "theme", "kind": "motif", "instrument": "fiddle", "motif": "trail", "at": [2], "timeScale": 2, "variation": 0.7 },
+      { "id": "haze", "kind": "motif", "instrument": "dread", "motif": "haze", "at": [0, 6], "octave": 3 } ] },
+
+    "camp": { "label": "Night camp", "key": { "root": "D", "scale": "minor" }, "bpm": 62, "phraseBars": 8, "progression": ["i", ".", "VI", ".", "III", ".", "VII", "."], "layers": [
+      { "id": "picking", "kind": "chords", "instrument": "pluck", "arp": { "rate": 4, "mode": "updown", "span": 1 }, "gain": 0.7 },
+      { "id": "bass", "kind": "bass", "instrument": "bass", "rhythm": [0], "gain": 0.8 },
+      { "id": "friend", "kind": "motif", "instrument": "fiddle", "motifFrom": { "state": "focus", "map": { "mattie": "mattie", "juniper": "juniper", "thaddeus": "thaddeus", "birdie": "birdie", "ambrose": "ambrose", "rue": "rue", "orin": "orin", "hollis": "hollis", "nell": "nell", "witch": "witch" }, "fallback": "trail" }, "at": [0, 4], "variation": 0.3, "gain": 0.85 },
+      { "id": "theme", "kind": "motif", "instrument": "reed", "motif": "trail", "at": [0], "timeScale": 2, "every": 2, "offset": 1, "octave": 4 } ] },
+
+    "scene": { "label": "Scene on the road", "key": { "root": "D", "scale": "minor" }, "bpm": 70, "phraseBars": 4, "progression": ["i", "VI", "iv", "V"], "layers": [
+      { "id": "pad", "kind": "chords", "instrument": "reed", "voicing": "open", "gain": 0.8 },
+      { "id": "situation", "kind": "motif", "instrument": "pluck", "motifFrom": { "state": "scenario", "map": { "stranger": "stranger", "hazard": "hazard", "find": "find", "haze": "haze", "oddity": "oddity", "respite": "respite", "dispute": "dispute", "crisis": "crisis", "landmark": "landmark", "witch": "witch" }, "fallback": "stranger" }, "at": [0], "octave": 4, "variation": 0.25 },
+      { "id": "person", "kind": "motif", "instrument": "fiddle", "motifFrom": { "state": "focus", "map": { "mattie": "mattie", "juniper": "juniper", "thaddeus": "thaddeus", "birdie": "birdie", "ambrose": "ambrose", "rue": "rue", "orin": "orin", "hollis": "hollis", "nell": "nell", "witch": "witch" }, "fallback": null }, "motif": "trail-answer", "at": [2], "variation": 0.2, "gain": 0.8, "when": [{ "state": "focus", "is": "none", "not": true }] },
+      { "id": "pulse", "kind": "perc", "instrument": "drums", "kick": [0, 8], "gain": 0.35, "when": [{ "param": "danger", "min": 0.4 }] } ] },
+
+    "fork": { "label": "The fork", "key": { "root": "D", "scale": "minor" }, "bpm": 66, "phraseBars": 4, "progression": ["i", "VI", "iv", "V"], "enterStinger": "fork", "layers": [
+      { "id": "pad", "kind": "chords", "instrument": "reed", "voicing": "open" },
+      { "id": "question", "kind": "motif", "instrument": "pluck", "motif": "fork", "at": [0, 2], "variation": 0.3 },
+      { "id": "theme", "kind": "motif", "instrument": "fiddle", "motif": "trail", "at": [0], "every": 2, "offset": 1, "variation": 0.5 } ] },
+
+    "landmark": { "label": "Landmark", "key": { "root": "D", "scale": "dorian" }, "bpm": 64, "phraseBars": 8, "progression": ["i", ".", "IV", ".", "i", ".", "VII", "."], "enterStinger": "landmark", "layers": [
+      { "id": "hum", "kind": "chords", "instrument": "choir", "voicing": "open" },
+      { "id": "bells", "kind": "motif", "instrument": "bell", "motif": "landmark", "at": [4], "octave": 5, "variation": 0.2 },
+      { "id": "theme", "kind": "motif", "instrument": "fiddle", "motif": "trail", "at": [0], "timeScale": 2, "variation": 0 } ] },
+
+    "combat": { "label": "Combat", "key": { "root": "D", "scale": "phrygian" }, "bpm": 132, "phraseBars": 4, "progression": ["i", "II", "i", "vii°"], "layers": [
+      { "id": "drums", "kind": "perc", "instrument": "drums", "kick": { "hits": 5, "steps": 16 }, "snare": [4, 12], "hat": { "hits": 11, "steps": 16 }, "fill": true, "gainFrom": { "param": "intensity", "from": [0, 1], "to": [0.6, 1.2] } },
+      { "id": "bass", "kind": "bass", "instrument": "bass", "rhythm": [0, 3, 6, 8, 11, 14], "fifths": true },
+      { "id": "stabs", "kind": "chords", "instrument": "fiddle", "rhythm": [0, 3, 6], "voicing": "shell", "octave": 4, "gain": 0.7 },
+      { "id": "haze", "kind": "motif", "instrument": "dread", "motif": "haze", "at": [0], "octave": 3, "gain": 1.3, "when": [{ "param": "danger", "min": 0.5 }] },
+      { "id": "theme", "kind": "motif", "instrument": "fiddle", "motif": "trail", "at": [2], "octave": 5, "variation": 0.5, "every": 2 } ] },
+
+    "grief": { "label": "Grief", "key": { "root": "D", "scale": "minor" }, "bpm": 56, "phraseBars": 8, "progression": ["i", ".", "iv", ".", "VI", ".", "V", "."], "overlays": false, "layers": [
+      { "id": "hum", "kind": "chords", "instrument": "choir", "voicing": "open" },
+      { "id": "lament", "kind": "motif", "instrument": "fiddle", "motif": "grief", "at": [0, 4], "variation": 0.15 },
+      { "id": "theme", "kind": "motif", "instrument": "reed", "motif": "trail", "at": [4], "timeScale": 2, "octave": 4, "every": 2, "offset": 1, "variation": 0 },
+      { "id": "toll", "kind": "motif", "instrument": "bell", "motif": "toll", "at": [0], "octave": 3 } ] },
+
+    "ending-victory": { "label": "Ending: through", "key": { "root": "D", "scale": "major" }, "bpm": 72, "phraseBars": 8, "progression": ["I", "IV", "vi", "V", "I", "IV", "V", "I"], "overlays": false, "enterStinger": "victory", "layers": [
+      { "id": "hum", "kind": "chords", "instrument": "choir", "voicing": "open" },
+      { "id": "arp", "kind": "chords", "instrument": "pluck", "arp": { "rate": 2, "mode": "up", "span": 2 }, "gain": 0.6 },
+      { "id": "bass", "kind": "bass", "instrument": "bass", "rhythm": [0, 8], "fifths": true },
+      { "id": "theme", "kind": "motif", "instrument": "fiddle", "motif": "trail", "at": [0], "variation": 0 },
+      { "id": "answer", "kind": "motif", "instrument": "fiddle", "motif": "trail-answer", "at": [2], "variation": 0 },
+      { "id": "theme2", "kind": "motif", "instrument": "fiddle", "motif": "trail", "at": [4], "variation": 0.3 },
+      { "id": "bells", "kind": "motif", "instrument": "bell", "motif": "landmark", "at": [6], "octave": 5 } ] },
+
+    "ending-loss": { "label": "Ending: taken by the Haze", "key": { "root": "D", "scale": "phrygian" }, "bpm": 50, "phraseBars": 8, "progression": ["i", ".", "II", ".", "i", ".", "i", "."], "overlays": false, "enterStinger": "haze", "layers": [
+      { "id": "drone", "kind": "drone", "instrument": "dread", "degree": 0, "fifth": false, "gain": 0.9 },
+      { "id": "breath", "kind": "texture", "instrument": "breath", "rate": 8, "density": 0.5, "range": [0, 7], "durationSteps": 12, "octave": 4 },
+      { "id": "haze", "kind": "motif", "instrument": "dread", "motif": "haze", "at": [0, 4], "octave": 3, "gain": 1.3 },
+      { "id": "theme", "kind": "motif", "instrument": "reed", "motif": "trail", "at": [2], "timeScale": 2, "octave": 3, "variation": 0.8, "gain": 1.4 } ] }
+  },
+
+  "stingers": {
+    "death": { "motif": "toll", "instrument": "bell", "quantize": "beat", "octave": 3, "gain": 1.3 },
+    "haze": { "motif": "haze", "instrument": "dread", "quantize": "beat", "octave": 3, "gain": 1.5 },
+    "fork": { "motif": "fork", "instrument": "bell", "quantize": "bar", "octave": 5, "gain": 0.8 },
+    "landmark": { "motif": "landmark", "instrument": "bell", "quantize": "bar", "octave": 4 },
+    "find": { "motif": "find", "instrument": "pluck", "quantize": "beat", "octave": 5 },
+    "victory": { "motif": "trail", "instrument": "bell", "quantize": "bar", "octave": 5, "gain": 0.8 },
+    "witch": { "motif": "witch", "instrument": "dread", "quantize": "beat", "octave": 3, "gain": 1.4 }
+  },
+
+  "rules": [
+    { "section": "ending-victory", "when": { "scene": "ending", "ending": "victory" }, "quantize": "bar" },
+    { "section": "ending-loss", "when": { "scene": "ending" }, "quantize": "bar" },
+    { "section": "combat", "when": { "scene": "combat" }, "quantize": "beat" },
+    { "section": "grief", "when": { "mourning": "yes" }, "quantize": "bar" },
+    { "section": "title", "when": { "scene": "title" }, "quantize": "bar" },
+    { "section": "muster", "when": { "scene": "muster" }, "quantize": "bar" },
+    { "section": "town", "when": { "scene": "town" }, "quantize": "bar" },
+    { "section": "landmark", "when": { "scene": "landmark" }, "quantize": "bar" },
+    { "section": "fork", "when": { "scene": "fork" }, "quantize": "bar" },
+    { "section": "scene", "when": { "scene": "scene" }, "quantize": "bar" },
+    { "section": "camp", "when": { "scene": "camp" }, "quantize": "bar" },
+    { "section": "trail-fen", "when": { "scene": "trail", "region": "fen" }, "quantize": "bar" },
+    { "section": "trail-flats", "when": { "scene": "trail", "region": "flats" }, "quantize": "bar" },
+    { "section": "trail-pines", "when": { "scene": "trail", "region": "pines" }, "quantize": "bar" },
+    { "section": "trail-spine", "when": { "scene": "trail", "region": "spine" }, "quantize": "bar" },
+    { "section": "trail-threshold", "when": { "scene": "trail", "region": "threshold" }, "quantize": "bar" },
+    { "section": "trail-tallow", "when": { "scene": "trail" }, "quantize": "bar" }
+  ],
+  "defaultSection": "title"
+}
