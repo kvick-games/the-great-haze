@@ -8,6 +8,7 @@ import { BACKGROUNDS } from "../../../src/game/content/roster.ts";
 import { DIFFICULTY, PACES, RATIONS, TUNING } from "../../../src/game/tuning.ts";
 import { LANDMARKS } from "../../../src/game/world.ts";
 import { ICONS, add, h, svg } from "./dom.ts";
+import { renderMap } from "./mapview.ts";
 import { Speech, checkLabel } from "./speech.ts";
 import type { Insets } from "./speech.ts";
 
@@ -60,6 +61,9 @@ export class UI {
   readonly speech: Speech;
   private talking = false;
   private talkMode: "open" | "folded" = "open";
+  private mapOverlay: HTMLElement | null = null;
+  private mapOpen = false;
+  private lastMapHud: Hud["map"] | null = null;
   private handlers: UIHandlers;
   private hot: string[] = [];
   private busy = false;
@@ -250,6 +254,33 @@ export class UI {
     this.root.appendChild(t);
   }
 
+  /** Open the parchment map over the view. */
+  showMap(): void {
+    if (!this.lastMapHud) return;
+    this.mapOpen = true;
+    this.mapOverlay?.remove();
+    const ov = h("div", "map-overlay");
+    const sheet = h("div", "map-sheet");
+    const close = h("button", "map-close", "Close");
+    close.type = "button";
+    close.addEventListener("click", () => this.closeMap());
+    add(sheet, h("h3", "", "The road as you have it"), close, renderMap(this.lastMapHud).el);
+    ov.addEventListener("click", (ev) => {
+      if (ev.target === ov) this.closeMap();
+    });
+    add(ov, sheet);
+    this.root.appendChild(ov);
+    this.mapOverlay = ov;
+    this.hud.querySelector(".map-btn")?.setAttribute("aria-expanded", "true");
+  }
+
+  closeMap(): void {
+    this.mapOpen = false;
+    this.mapOverlay?.remove();
+    this.mapOverlay = null;
+    this.hud.querySelector(".map-btn")?.setAttribute("aria-expanded", "false");
+  }
+
   hideTitle(): void {
     this.root.classList.remove("at-title");
     this.title?.remove();
@@ -274,7 +305,12 @@ export class UI {
 
   private renderHud(hud: Hud, kind: Screen["kind"]): void {
     this.hud.replaceChildren();
-    if (kind === "setup") return;
+    this.lastMapHud = hud.map;
+    if (kind === "setup") {
+      this.closeMap();
+      return;
+    }
+    if (this.mapOpen) this.showMap();
     const where = h("div", "where");
     add(where, h("div", "day", `Day ${hud.day}`), h("div", "region", hud.region));
     const gauge = h("div", "gauge");
@@ -347,7 +383,12 @@ export class UI {
         }, 4000);
       }
     });
-    add(tools, snd, q, ab);
+    const mp = h("button", "tool text map-btn", "Map");
+    mp.type = "button";
+    mp.title = "The map of the road";
+    mp.setAttribute("aria-expanded", String(this.mapOpen));
+    mp.addEventListener("click", () => (this.mapOpen ? this.closeMap() : this.showMap()));
+    add(tools, mp, snd, q, ab);
     add(this.hud, where, gauge, res, tools);
   }
 
@@ -592,15 +633,33 @@ export class UI {
         add(c, this.lines(s.lines));
         const talk = this.talk(s);
         if (talk) c.appendChild(talk);
+        let seen: HTMLElement | null = null;
         if (s.observations.length) {
           const box = h("div", "notice");
           add(box, h("div", "lab", "You notice"));
           for (const o of s.observations) box.appendChild(h("p", "", o));
-          c.appendChild(box);
+          seen = box;
         }
+        // At a fork the choices and map come first; what you notice waits below them.
+        if (seen && !s.fork) c.appendChild(seen);
         const n = this.notes(s.notes);
         if (n) c.appendChild(n);
-        add(c, this.options(s.options, mph));
+        const opts = this.options(s.options, mph);
+        if (s.fork) {
+          // At a fork the map sits beside the choices; hovering a road lights it.
+          const m = renderMap(s.hud.map, { compact: true });
+          const row = h("div", "fork-row");
+          opts.querySelectorAll<HTMLButtonElement>("button.opt").forEach((b, i) => {
+            const id = s.options[i]?.id ?? "";
+            const eid = id.startsWith("route:") ? id.slice(6) : null;
+            b.addEventListener("mouseenter", () => m.highlight(eid));
+            b.addEventListener("focus", () => m.highlight(eid));
+            b.addEventListener("mouseleave", () => m.highlight(null));
+            b.addEventListener("blur", () => m.highlight(null));
+          });
+          add(c, add(row, m.el, opts));
+          if (seen) c.appendChild(seen);
+        } else add(c, opts);
       }
     }
     // A staged conversation leaves only a small toggle; the words stay reachable for reading.
