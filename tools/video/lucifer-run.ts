@@ -1,6 +1,12 @@
 // Runs a list of Hyperlab jobs one at a time on a pinned worker (default: lucifer).
 //
-//   node tools/video/lucifer-run.ts <jobs.json> [--base-url http://127.0.0.1:8487] [--worker lucifer-comfy] [--out artifacts/video/runs/<name>]
+//   node tools/video/lucifer-run.ts <jobs.json> [--base-url http://127.0.0.1:8487] [--worker lucifer-comfy] [--out artifacts/video/runs/<name>] [--via-queue]
+//
+// --via-queue: instead of pinned run-now, check GET /api/queue/jobs/{id}/worker-compatibility (the
+//   worker must be the ONLY compatible one), submit the job to Hyperlab's shared queue with
+//   POST /api/queue/submit, and poll until it is terminal. The dispatcher places it; queue wait
+//   (queued_at -> started_at) and run time (started_at -> completed_at) are recorded separately.
+//   It never sets a priority or touches any other job.
 //
 // jobs.json: [{ "key": "hero:odalys", "body": <POST /api/jobs/from_capability body> }, ...]
 //
@@ -16,7 +22,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, cop
 import { basename, extname, join } from "node:path";
 
 interface JobSpec { key: string; body: Record<string, unknown> }
-interface Done { key: string; job_id: string; status: string; outputs: string[] }
+interface Done { key: string; job_id: string; status: string; outputs: string[]; queue_seconds?: number; run_seconds?: number }
 
 const LOOPBACK = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?\/?$/;
 
@@ -30,6 +36,7 @@ if (!jobsPath || jobsPath.startsWith("--")) throw new Error("usage: lucifer-run.
 const base = arg("base-url", "http://127.0.0.1:8487").replace(/\/$/, "");
 if (!LOOPBACK.test(base)) throw new Error("Hyperlab is loopback only");
 const worker = arg("worker", "lucifer-comfy");
+const viaQueue = process.argv.includes("--via-queue");
 const out = arg("out", join("artifacts/video/runs", basename(jobsPath, extname(jobsPath))));
 mkdirSync(out, { recursive: true });
 const statePath = join(out, "state.json");
@@ -71,7 +78,7 @@ async function run(spec: JobSpec): Promise<Done> {
     const j = await api("GET", `/api/jobs/${jobId}`);
     const s = String(j.status).toLowerCase();
     if (s === "completed") return finish(spec.key, jobId, j);
-    if (!["pending", "draft", "created"].includes(s)) jobId = undefined; // failed/cancelled: make a fresh job
+    if (!["pending", "draft", "created", ...(viaQueue ? ["queued", "running"] : [])].includes(s)) jobId = undefined; // failed/cancelled: make a fresh job
   }
   if (!jobId) {
     const created = await api("POST", "/api/jobs/from_capability", { ...spec.body, auto_queue: false });
@@ -81,6 +88,7 @@ async function run(spec: JobSpec): Promise<Done> {
     save();
   }
   await waitForAuthority(spec.key);
+  if (viaQueue) return viaQueueRun(spec.key, jobId);
   status({ state: "running", key: spec.key, job_id: jobId });
   log({ event: "run_now", key: spec.key, job_id: jobId, worker });
   const started = api("POST", `/api/jobs/${jobId}/run-now`, { execution_target_id: worker }, 6 * 3600_000)
@@ -108,6 +116,44 @@ async function run(spec: JobSpec): Promise<Done> {
   }
 }
 
+const TERMINAL = ["completed", "failed", "cancelled", "canceled"];
+const secondsBetween = (a?: string | null, b?: string | null): number | undefined => (a && b ? Math.round((Date.parse(b) - Date.parse(a)) / 100) / 10 : undefined);
+
+/** Queue mode: verify the worker is the only compatible one, submit to the shared queue, poll to a terminal state. */
+async function viaQueueRun(key: string, jobId: string): Promise<Done> {
+  let job = await api("GET", `/api/jobs/${jobId}`);
+  let s = String(job.status).toLowerCase();
+  if (["pending", "draft", "created"].includes(s)) {
+    const compat = await api("GET", `/api/queue/jobs/${jobId}/worker-compatibility`);
+    const ok = (compat.workers ?? []).filter((w: any) => w.compatible).map((w: any) => String(w.worker_id));
+    log({ event: "worker_compatibility", key, job_id: jobId, compatible: ok, message: compat.message, workers: (compat.workers ?? []).map((w: any) => ({ id: w.worker_id, compatible: w.compatible, reason: w.reason_code })) });
+    if (ok.length !== 1 || ok[0] !== worker) throw new Error(`${key}: expected ${worker} as the only compatible worker, got [${ok.join(", ") || "none"}]: ${compat.message ?? ""}`);
+    await waitForAuthority(key); // a pause between the checks and the submit still holds us back
+    log({ event: "queue_submit", key, job_id: jobId });
+    await api("POST", "/api/queue/submit", { job_id: jobId });
+  }
+  for (;;) {
+    job = await api("GET", `/api/jobs/${jobId}`);
+    s = String(job.status).toLowerCase();
+    status({ state: s, key, job_id: jobId, progress: job.progress, stage: job.progress_stage, queue_position: job.queue_position, queued_at: job.queued_at, started_at: job.started_at });
+    if (TERMINAL.includes(s)) break;
+    await sleep(10_000);
+  }
+  if (s !== "completed") {
+    log({ event: "job_failed", key, job_id: jobId, status: s, error: job.error ?? job.error_message ?? null });
+    state[key] = { key, job_id: jobId, status: s, outputs: [] };
+    save();
+    throw new Error(`${key} (${jobId}) ended ${s}: ${JSON.stringify(job.error ?? job.error_message ?? "")}`);
+  }
+  const done = finish(key, jobId, job);
+  done.queue_seconds = secondsBetween(job.queued_at, job.started_at);
+  done.run_seconds = secondsBetween(job.started_at, job.completed_at);
+  state[key] = done;
+  save();
+  log({ event: "job_timing", key, job_id: jobId, queued_at: job.queued_at, started_at: job.started_at, completed_at: job.completed_at, queue_seconds: done.queue_seconds, run_seconds: done.run_seconds });
+  return done;
+}
+
 function finish(key: string, jobId: string, job: any): Done {
   const outputs: string[] = [];
   for (const o of job.outputs ?? []) {
@@ -130,7 +176,7 @@ const t0 = Date.now();
 for (const spec of specs) {
   const t = Date.now();
   const d = await run(spec);
-  console.log(`${spec.key}: ${d.status} ${d.job_id} in ${Math.round((Date.now() - t) / 1000)} s -> ${d.outputs.join(", ") || "(no local output)"}`);
+  console.log(`${spec.key}: ${d.status} ${d.job_id} in ${Math.round((Date.now() - t) / 1000)} s -> ${d.outputs.join(", ") || "(no local output)"}${d.run_seconds !== undefined ? ` [queue ${d.queue_seconds} s, run ${d.run_seconds} s]` : ""}`);
 }
 status({ state: "done", jobs: specs.length, seconds: Math.round((Date.now() - t0) / 1000) });
 console.log(`all ${specs.length} jobs done in ${Math.round((Date.now() - t0) / 1000)} s`);
