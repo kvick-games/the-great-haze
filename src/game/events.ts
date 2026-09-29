@@ -37,7 +37,8 @@ export function pickRoadScene(env: Env, exclude: string[] = []): SceneDef | unde
   const pool = SCENES.filter((d) => ROAD_KINDS.has(d.kind) && !exclude.includes(d.id) && eligible(env, d));
   const zone = zoneOf(s.gap);
   return env.rng.weighted(pool, (d) => {
-    let w = d.weight * recencyFactor(s, d.id);
+    // A little noise so the same weights do not always tell the same story.
+    let w = d.weight * recencyFactor(s, d.id) * env.rng.float(0.8, 1.25);
     if (d.closeBias && (zone === "close" || zone === "upon")) w *= d.closeBias;
     // Respite only makes sense when people are worn down.
     if (d.kind === "respite") w *= avgNerve(s) < 55 ? 2 : 0.2;

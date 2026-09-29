@@ -13,6 +13,7 @@ import type { Env } from "./effects.ts";
 import { fillText, resolveWho } from "./effects.ts";
 import { able, byId, firstName, hasTrait, living } from "./party.ts";
 import { pickChecker } from "./checks.ts";
+import { hashSeed } from "./rng.ts";
 import { npcById } from "./content/npcs.ts";
 import { sceneById } from "./content/scenes/index.ts";
 
@@ -94,6 +95,11 @@ export function sayLine(env: Env, ctx: TalkCtx, line: Line): SpokenLine | undefi
   const who = resolveSpeaker(env, ctx, line.who);
   if (!who) return undefined;
   let text = line.text;
+  if (line.vary?.length) {
+    // Same scene, same day, same words: the pick comes from the run's seed, not its random stream.
+    const pool = [line.text, ...line.vary];
+    text = pool[(hashSeed(`${env.s.seed}:${env.s.day}:${ctx.def?.id ?? ""}:${line.who}:${line.text}`) >>> 0) % pool.length];
+  }
   if (line.alt) {
     for (const t of who.traits) {
       const alt = line.alt[t];

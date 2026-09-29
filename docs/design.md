@@ -151,6 +151,26 @@ clothing, palette, prop, marks, summary, meant for portraits and video prompts),
 Recruiting one makes them an ordinary party member (`recruited`, flag `joined:<id>`). After `afterDays` their
 complication fires once as a scene where they speak. Some strangers recur, gated on `met:<id>` flags.
 
+## Relationships
+
+`relationships.ts` holds a serializable pairwise state (`GameState.rel`). The affinity score is the existing
+`bonds` value (-100..100); `rel.pairs` records what each pair is: stranger, friend, close-friend, rival, courting,
+lovers, spouses or estranged. Relations are seeded at muster (a minority start as couples), traits bias the daily
+drift, and shared danger draws steady people together and cracks the frayed. Each person also has a hidden
+fidelity disposition that the player never sees.
+
+- **Affairs** are secrets with a who-knows set. Every tryst gives everyone else a spot-check notice roll. A noticer
+  decides by how they feel about the three involved: tell the wronged partner, tell the wagon-master, gossip,
+  blackmail, or keep quiet. A wronged partner who learns reacts by confronting in public, in private, by brooding,
+  or with a brawl; scenes can break couples, cause fights, desertion or reconciliation.
+- **What the player knows:** only what a party member brings to the wagon-master, or what the wagon-master sees.
+  `relationsOf(state, memberId)` returns the views the crew panel may show (`RelationView`) and leaves unknown affairs
+  and dispositions out.
+- **Grief:** a death or departure hits lovers and friends hard on nerve and queues a mourning scene.
+- **History:** `Member.history` holds `{day, text}` entries, capped at 40, written by the sim and by `fx.note`.
+- **Content:** `rel-` scenes (`scenes/romance.ts`, `affairs.ts`, `bonds.ts`) are queued by the engine with their
+  people already chosen (`bound`). Tuning constants live in `REL`.
+
 ## Combat
 
 Short and expensive. Each round takes half an hour off the road and each tactic burns something: **fire** (shot, one

@@ -406,7 +406,7 @@ export interface MemberView {
   conditions: string[];
   isLeader: boolean;
   /** Notable things that happened to them, newest last. */
-  history: HistoryEntry[];
+  history?: HistoryEntry[];
   /** Set for named companions from content/npcs.ts: how they look. */
   look?: Look;
 }

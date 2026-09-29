@@ -56,6 +56,7 @@ test("spoken lines are short, well-formed and use only the fixed mood and gestur
   for (const { at, line } of allLines()) {
     assert.ok(line.text.trim().length >= 2, `${at.where}: empty line`);
     assert.ok(words(line.text) <= MAX_WORDS, `${at.where}: ${words(line.text)} words: "${line.text}"`);
+    for (const v of line.vary ?? []) assert.ok(words(v) <= MAX_WORDS && words(v) >= 1, `${at.where}: vary is ${words(v)} words: "${v}"`);
     if (line.mood) assert.ok((MOODS as readonly string[]).includes(line.mood), `${at.where}: bad mood ${line.mood}`);
     if (line.gesture) assert.ok((GESTURES as readonly string[]).includes(line.gesture), `${at.where}: bad gesture ${line.gesture}`);
     for (const [trait, text] of Object.entries(line.alt ?? {})) {
@@ -74,7 +75,7 @@ test("every speaker resolves in the scene that uses it", () => {
     else if (who.startsWith("role:")) assert.ok((ROLES as readonly string[]).includes(who.slice(5)), `${at.where}: unknown role ${who}`);
     else if (who === "stranger") assert.ok(def.stranger, `${at.where}: "stranger" speaks but ${def.id} defines no stranger`);
     else if (who === "observer") assert.ok(def.tells?.length, `${at.where}: "observer" needs a scene with tells`);
-    else if (who === "a" || who === "b") assert.ok(def.pairWeight, `${at.where}: "${who}" needs a scene with a pair`);
+    else if (who === "a" || who === "b") assert.ok(def.pairWeight || def.bound, `${at.where}: "${who}" needs a scene with a pair (or a bound scene)`);
     else if (who === "by") assert.ok(at.hasCheck, `${at.where}: "by" needs an option with a check`);
     else assert.ok(["leader", "actor", "other"].includes(who), `${at.where}: unknown speaker ${who}`);
   }

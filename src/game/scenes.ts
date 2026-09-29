@@ -22,7 +22,8 @@ import type {
 } from "./types.ts";
 import type { Env } from "./effects.ts";
 import { allConds, applyEffects, evalCond, fillText, resolveWho } from "./effects.ts";
-import { bond, byId, firstName, living, perception } from "./party.ts";
+import { bond, byId, firstName, living, perception, remember } from "./party.ts";
+import { kindOf, markSecretSeen } from "./relationships.ts";
 import { hoursToMiles } from "./travel.ts";
 import { sceneById } from "./content/scenes/index.ts";
 import { npcById } from "./content/npcs.ts";
@@ -67,7 +68,11 @@ function pickPair(env: Env, def: SceneDef): { a: string; b: string } | undefined
   for (const a of ms) {
     for (const b of ms) {
       if (a.id === b.id) continue;
-      const w = def.pairWeight(a, b, bond(env.s, a.id, b.id));
+      let w = def.pairWeight(a, b, bond(env.s, a.id, b.id));
+      // Old enmities and broken hearts quarrel more; the happily paired quarrel less.
+      const k = kindOf(env.s, a.id, b.id);
+      if (k === "rival" || k === "estranged") w *= 1.6;
+      else if (k === "lovers" || k === "spouses") w *= 0.7;
       if (w > 0) pairs.push({ a, b, w });
     }
   }
@@ -134,10 +139,11 @@ export function buildScene(env: Env, item: Extract<QueueItem, { t: "scene" }>): 
     actor: item.actor,
     a: item.a,
     b: item.b,
+    lost: item.lost,
     tells: [],
     looks: 0,
   };
-  env.bind = { actor: item.actor, a: item.a, b: item.b, noLeader: def.others };
+  env.bind = { actor: item.actor, a: item.a, b: item.b, other: item.other, lost: item.lost, noLeader: def.others };
   if (def.pairWeight && !(inst.a && inst.b)) {
     const pair = pickPair(env, def);
     if (pair) {
@@ -154,6 +160,7 @@ export function buildScene(env: Env, item: Extract<QueueItem, { t: "scene" }>): 
   const otherList = resolveWho(env, "other");
   inst.other = otherList[0]?.id ?? inst.b;
   env.bind.other = inst.other;
+  if (def.secret) markSecretSeen(s, def.secret, inst.a, inst.b, inst.other);
   if (def.tells && def.tells.length) {
     inst.truth = env.rng.chance(def.genuineOdds ?? 0.5) ? "genuine" : "trap";
     def.tells.forEach((t, i) => {
@@ -179,7 +186,7 @@ export function buildScene(env: Env, item: Extract<QueueItem, { t: "scene" }>): 
 // ---------------------------------------------------------------------------
 
 export function bindFor(inst: SceneInstance): Env["bind"] {
-  return { actor: inst.actor, other: inst.other, a: inst.a, b: inst.b };
+  return { actor: inst.actor, other: inst.other, a: inst.a, b: inst.b, lost: inst.lost };
 }
 
 export function optionHours(env: Env, opt: OptionDef): number {
@@ -429,13 +436,31 @@ export function resolveOption(env: Env, inst: SceneInstance, optionId: string): 
   const ctx: TalkCtx = { def, inst };
   const talk = sayLines(env, ctx, outcome.talk);
   const aboard = new Set(s.party.map((m) => m.id));
+  env.bind.noted = new Set();
   applyEffects(env, outcome.fx, notes);
+  // Everyone the scene was about gets a line in their history, unless the outcome wrote its own.
+  const title = fillText(env, def.title);
+  const involved = new Set<string>([inst.a, inst.b, def.bound ? inst.other : undefined, usesActor(def) ? inst.actor : undefined].filter((id): id is string => !!id));
+  for (const id of involved) if (!env.bind.noted.has(id)) remember(s, byId(s, id), `Was caught up in "${title}".`);
   for (const m of s.party) {
     if (aboard.has(m.id)) continue;
     const npc = npcById(m.id);
     if (npc) talk.push(...sayLines(env, ctx, npc.join));
   }
   return { title: fillText(env, def.title), lines: [text], notes, stay: false, talk, check };
+}
+
+const ACTOR_USE = new Map<string, boolean>();
+
+/** Does the scene put {actor} in front of the player (text or speech)? */
+function usesActor(def: SceneDef): boolean {
+  let v = ACTOR_USE.get(def.id);
+  if (v === undefined) {
+    const text = JSON.stringify(def);
+    v = text.includes("{actor}") || text.includes('"who":"actor"') || def.bound === true;
+    ACTOR_USE.set(def.id, v);
+  }
+  return v;
 }
 
 export function optionAvailable(env: Env, inst: SceneInstance, optionId: string): string | null {

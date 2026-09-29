@@ -261,7 +261,7 @@ export function chooseOption(game: Game, strategy: Strategy, rand: Rand): string
         return cheapest(opts).id;
       }
       // Companion beats: hear them out with the gentlest answer on offer.
-      if (def.id.startsWith("npc-")) return chooseCompanion(opts);
+      if (def.id.startsWith("npc-") || def.id.startsWith("rel-")) return chooseCompanion(opts);
       // Hazards, finds, haze events, oddities, respites.
       if (strategy === "reckless") return cheapest(opts).id;
       if (def.kind === "respite") return opts[0].id;

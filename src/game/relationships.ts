@@ -18,9 +18,10 @@ import { COUPLE_KINDS } from "./rel-types.ts";
 import type { Env } from "./effects.ts";
 import type { Rng } from "./rng.ts";
 import { hashSeed } from "./rng.ts";
-import { addBond, able, avgNerve, bond, byId, changeNerve, clamp, firstName, hasTrait, leader, living, pairKey, remember } from "./party.ts";
+import { addBond, able, avgNerve, bond, byId, changeNerve, clamp, firstName, hasTrait, living, pairKey, remember } from "./party.ts";
 import { checkerFor, rollCheck } from "./checks.ts";
 import { zoneOf } from "./tuning.ts";
+import { sceneById } from "./content/scenes/index.ts";
 
 // ---------------------------------------------------------------------------
 // Tuning
@@ -296,7 +297,7 @@ function makePublic(s: GameState, sec: Secret): void {
   }
 }
 
-function endSecret(s: GameState, sec: Secret, how: string): void {
+function endSecret(sec: Secret, how: string): void {
   if (sec.ended) return;
   sec.ended = how;
   sec.blackmailer = undefined;
@@ -333,7 +334,7 @@ export function applyAffairOp(env: Env, op: AffairOp): void {
       sec.playerKnows = true;
       return;
     case "end":
-      endSecret(s, sec, "ended");
+      endSecret(sec, "ended");
       return;
     case "silence":
       sec.blackmailer = undefined;
@@ -430,7 +431,7 @@ const cool = (s: GameState, name: string): void => {
 };
 
 function sceneFor(s: GameState, i: RelSceneItem): boolean {
-  return [i.actor, i.a, i.b, i.other].every((id) => !id || byId(s, id)?.alive);
+  return !!sceneById(i.id) && [i.actor, i.a, i.b, i.other].every((id) => !id || byId(s, id)?.alive);
 }
 
 // ---------------------------------------------------------------------------
@@ -482,7 +483,7 @@ function respond(c: Ctx, sec: Secret, w: Member, source: Member | undefined, how
     addBond(s, w.id, l.id, -12);
     addBond(s, w.id, x.id, -10);
     if (rng.chance(0.4 + faithOf(s, x.id) / 200)) {
-      endSecret(s, sec, "confronted in private");
+      endSecret(sec, "confronted in private");
       addBond(s, x.id, l.id, -10);
       changeNerve(l, -4);
     } else {
@@ -575,7 +576,7 @@ function runTrystIn(env: Env, sec: Secret, c: Ctx): TrystReport {
         sec.glimpsed = true;
         report.noticed.push(m.id);
         const w = sec.wronged.find((id) => !sec.wrongedKnows.includes(id)) ?? sec.wronged[0];
-        queueScene(c, { id: "rel-affair-glimpse", a: w, b: sec.culprit, other: sec.lover, actor: w }, false);
+        queueScene(c, { id: env.rng.chance(0.4) ? "rel-affair-evidence" : "rel-affair-glimpse", a: w, b: sec.culprit, other: sec.lover, actor: w }, false);
       }
       continue;
     }
@@ -762,6 +763,19 @@ function romance(env: Env, c: Ctx): void {
     }
   }
 
+  // Couples under strain quarrel in front of everyone.
+  if (cooled(s, "lquarrel", 5)) {
+    for (const [a, b] of rng.shuffle(pairs)) {
+      if (!isCouple(kindOf(s, a.id, b.id))) continue;
+      if (bond(s, a.id, b.id) >= 35 && a.nerve >= 35 && b.nerve >= 35) continue;
+      if (rng.chance(0.06)) {
+        cool(s, "lquarrel");
+        queueScene(c, { id: "rel-lovers-quarrel", a: a.id, b: b.id, actor: a.id });
+        break;
+      }
+    }
+  }
+
   // Old wounds heal.
   if (cooled(s, "reconcile", 5)) {
     for (const [a, b] of rng.shuffle(pairs)) {
@@ -823,11 +837,11 @@ function affairs(env: Env, c: Ctx): void {
   for (const sec of activeSecrets(s)) {
     const x = byId(s, sec.culprit);
     const l = byId(s, sec.lover);
-    if (!x?.alive || !l?.alive) endSecret(s, sec, "one of them is gone");
-    else if (!wrongedAlive(s, sec).length) endSecret(s, sec, "nobody left to wrong");
+    if (!x?.alive || !l?.alive) endSecret(sec, "one of them is gone");
+    else if (!wrongedAlive(s, sec).length) endSecret(sec, "nobody left to wrong");
     else if (!sec.wronged.every((w) => isCouple(kindOf(s, w, sec.wronged[0] === w ? sec.culprit : sec.lover)) || !byId(s, w)?.alive)) {
       // Their partner left them, or they left: the secret has no one left to hide from.
-      if (sec.wronged.every((w) => !isCouple(kindOf(s, w, sec.culprit)) && !isCouple(kindOf(s, w, sec.lover)))) endSecret(s, sec, "the couple parted");
+      if (sec.wronged.every((w) => !isCouple(kindOf(s, w, sec.culprit)) && !isCouple(kindOf(s, w, sec.lover)))) endSecret(sec, "the couple parted");
     }
   }
   newAffair(c);
@@ -868,7 +882,7 @@ function affairs(env: Env, c: Ctx): void {
       // They end it quietly on their own.
       if (sec.playerKnows && sceneWorthy(s, sec)) queueScene(c, { id: "rel-affair-ends", a: sec.wronged[0], b: x.id, other: l.id, actor: x.id });
       else {
-        endSecret(s, sec, "broken off");
+        endSecret(sec, "broken off");
         addBond(s, x.id, l.id, -12);
         changeNerve(l, -6);
       }
@@ -887,7 +901,7 @@ function affairs(env: Env, c: Ctx): void {
     // Everyone knows and nothing changes: it burns out.
     const knownFor = sec.publicDay !== undefined ? s.day - sec.publicDay : allWrongedKnow ? 6 : 0;
     if (allWrongedKnow && knownFor >= 6 && rng.chance(0.25)) {
-      endSecret(s, sec, "burned out");
+      endSecret(sec, "burned out");
       addBond(s, x.id, l.id, -8);
     }
   }
@@ -902,6 +916,20 @@ function loyalty(env: Env, c: Ctx): void {
     if (!carers.length) continue;
     const carer = carers.reduce((p, q) => (bond(s, q.id, d.id) > bond(s, p.id, d.id) ? q : p));
     if (rng.chance(0.65)) queueScene(c, { id: "rel-vigil", a: carer.id, b: d.id, actor: carer.id, other: d.id }, true);
+  }
+  // A hurt friend may draw someone into a risk on their behalf.
+  if (cooled(s, "rescue", 10)) {
+    for (const d of nonLeaders(s)) {
+      if (d.dying || !d.wounded || d.health >= d.maxHealth * 0.5) continue;
+      const carers = able(s).filter((m) => !m.isLeader && m.id !== d.id && (isCouple(kindOf(s, m.id, d.id)) || bond(s, m.id, d.id) >= 45));
+      if (!carers.length) continue;
+      if (rng.chance(0.06)) {
+        cool(s, "rescue");
+        const carer = rng.pick(carers);
+        queueScene(c, { id: "rel-loyalty-rescue", a: carer.id, b: d.id, actor: carer.id, other: d.id });
+        break;
+      }
+    }
   }
 }
 
@@ -930,7 +958,7 @@ export function relationsNight(env: Env): { items: QueueItem[]; notes: string[] 
 export function onDeath(env: Env, dead: Member): void {
   const s = env.s;
   ensureRel(s);
-  for (const sec of activeSecrets(s)) if (sec.culprit === dead.id || sec.lover === dead.id) endSecret(s, sec, "one of them died");
+  for (const sec of activeSecrets(s)) if (sec.culprit === dead.id || sec.lover === dead.id) endSecret(sec, "one of them died");
   if (dead.isLeader) return;
   let best: { m: Member; grief: number; scene: string } | undefined;
   for (const m of living(s)) {
@@ -950,15 +978,15 @@ export function onDeath(env: Env, dead: Member): void {
     if (isCouple(k)) remember(s, m, `Lost ${firstName(dead)}, the one they loved.`);
     if (scene && (!best || grief > best.grief)) best = { m, grief, scene };
   }
-  if (best) env.s.queue.push({ t: "scene", id: best.scene, actor: best.m.id, lost: dead.id });
+  if (best && sceneById(best.scene)) env.s.queue.push({ t: "scene", id: best.scene, actor: best.m.id, lost: dead.id });
 }
 
 /** Someone has left the train. A lover may follow. */
 export function onDeparture(env: Env, gone: Member): void {
   const s = env.s;
   ensureRel(s);
-  for (const sec of activeSecrets(s)) if (sec.culprit === gone.id || sec.lover === gone.id) endSecret(s, sec, "one of them left");
+  for (const sec of activeSecrets(s)) if (sec.culprit === gone.id || sec.lover === gone.id) endSecret(sec, "one of them left");
   if (gone.isLeader) return;
   const lover = living(s).find((m) => !m.isLeader && m.id !== gone.id && isCouple(kindOf(s, m.id, gone.id)));
-  if (lover) env.s.queue.push({ t: "scene", id: "rel-lover-follows", actor: lover.id, lost: gone.id });
+  if (lover && sceneById("rel-lover-follows")) env.s.queue.push({ t: "scene", id: "rel-lover-follows", actor: lover.id, lost: gone.id });
 }

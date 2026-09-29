@@ -7,6 +7,7 @@ import type { Rng } from "./rng.ts";
 import {
   able,
   addBond,
+  bond,
   anyTrait,
   byId,
   cargoCap,
@@ -17,7 +18,10 @@ import {
   hasTrait,
   leader,
   living,
+  changeNerve,
+  remember,
 } from "./party.ts";
+import { applyAffairOp, changeKind, enterParty, kindOf, onDeath, onDeparture } from "./relationships.ts";
 import { ITEMS, TUNING } from "./tuning.ts";
 import { RECRUITS } from "./content/roster.ts";
 import type { MemberTemplate } from "./content/roster.ts";
@@ -35,6 +39,10 @@ export interface Bind {
   by?: string;
   /** The pair chosen by "two", fixed for the whole outcome so every effect hits the same people. */
   pair?: string[];
+  /** Someone who has died or gone, for `{lost}`. */
+  lost?: string;
+  /** Members who already had a history line written by this outcome. */
+  noted?: Set<string>;
 }
 
 export interface Env {
@@ -152,8 +160,12 @@ export function resolveWho(env: Env, who: Who): Member[] {
 }
 
 export function fillText(env: Env, text: string): string {
-  return text.replace(/\{(actor|other|a|b|leader|by)\}/g, (_, key: string) => {
+  return text.replace(/\{(actor|other|a|b|leader|by|lost)\}/g, (_, key: string) => {
     if (key === "leader") return firstName(leader(env.s));
+    if (key === "lost") {
+      const m = byId(env.s, env.bind.lost);
+      return m ? firstName(m) : "someone";
+    }
     if (key === "by") {
       const m = byId(env.s, env.bind.by);
       return m ? firstName(m) : "someone";
@@ -194,6 +206,23 @@ export function evalCond(env: Env, c: Cond): boolean {
   if ("fog" in c) return living(s).some((m) => m.fog > 0);
   if ("partyMin" in c) return living(s).length >= c.partyMin;
   if ("partyMax" in c) return living(s).length <= c.partyMax;
+  if ("ofWho" in c) return resolveWho(env, c.ofWho).some((m) => m.traits.includes(c.has));
+  if ("relKind" in c) {
+    const as = resolveWho(env, c.relKind.a);
+    const bs = resolveWho(env, c.relKind.b);
+    return as.some((a) => bs.some((b) => a.id !== b.id && c.relKind.kinds.includes(kindOf(s, a.id, b.id))));
+  }
+  if ("aff" in c) {
+    const as = resolveWho(env, c.aff.a);
+    const bs = resolveWho(env, c.aff.b);
+    return as.some((a) =>
+      bs.some((b) => {
+        if (a.id === b.id) return false;
+        const v = bond(s, a.id, b.id);
+        return v >= (c.aff.min ?? -Infinity) && v <= (c.aff.max ?? Infinity);
+      }),
+    );
+  }
   if ("not" in c) return !evalCond(env, c.not);
   return c.any.some((x) => evalCond(env, x));
 }
@@ -206,19 +235,7 @@ export function allConds(env: Env, conds: Cond[] | undefined): boolean {
 // Primitive state changes
 // ---------------------------------------------------------------------------
 
-const NERVE_LOSS_MULT: Partial<Record<string, number>> = { stoic: 0.6, paranoid: 1.2, haunted: 1.2, coward: 1.3 };
-
-export function changeNerve(m: Member, d: number): number {
-  let delta = d;
-  if (d < 0) {
-    let mult = 1;
-    for (const t of m.traits) mult *= NERVE_LOSS_MULT[t] ?? 1;
-    delta = -Math.round(-d * mult);
-  }
-  const before = m.nerve;
-  m.nerve = clamp(m.nerve + delta, 0, 100);
-  return m.nerve - before;
-}
+export { changeNerve };
 
 export function addResource(env: Env, res: ResourceId, d: number, notes: string[]): number {
   const s = env.s;
@@ -266,7 +283,10 @@ export function killMember(env: Env, m: Member, cause: string, notes: string[]):
     if (b >= 40) loss += 8;
     if (hasTrait(other, "kind") || hasTrait(other, "pious")) loss += 3;
     changeNerve(other, -loss);
+    remember(s, other, `${firstName(m)} died: ${cause}.`);
   }
+  remember(s, m, `Died: ${cause}.`);
+  onDeath(env, m);
   if (m.isLeader) {
     finish(s, "lost", "The wagon-master is gone.", [
       `${m.name} is dead. Without a voice to follow, the train breaks apart in the dark.`,
@@ -278,6 +298,7 @@ export function killMember(env: Env, m: Member, cause: string, notes: string[]):
 export function hurt(env: Env, m: Member, dmg: number, notes: string[], lethal = false): void {
   if (!m.alive || dmg <= 0) return;
   m.health -= dmg;
+  if (dmg >= 8 && !m.wounded) remember(env.s, m, "Was badly wounded.");
   if (dmg >= 8) m.wounded = true;
   if (m.health <= 0) {
     if (lethal || m.dying) {
@@ -287,6 +308,7 @@ export function hurt(env: Env, m: Member, dmg: number, notes: string[], lethal =
       m.dying = true;
       m.dyingSince = env.s.day;
       m.wounded = true;
+      remember(env.s, m, "Was left dying.");
       notes.push(`${m.name} is dying. They will not last the night without physic.`);
     }
   }
@@ -312,6 +334,7 @@ export function exposeToFog(env: Env, m: Member, notes: string[], stages = 1): b
   const before = m.fog;
   m.fog = Math.min(3, m.fog + stages);
   if (m.fog > before) {
+    remember(s, m, m.fog >= 3 ? "Breathed the Haze until it took hold." : "Breathed in the Haze and fell fogsick.");
     if (m.fog >= 3) notes.push(`${m.name}'s eyes have gone the color of the sky. They are turning.`);
     else notes.push(`${m.name} breathes the Haze in. Fogsick (stage ${m.fog}).`);
   }
@@ -349,8 +372,11 @@ export function recruit(env: Env, id: string | undefined, notes: string[]): Memb
     alive: true,
     isLeader: false,
     recruited: true,
+    history: [],
   };
   s.party.push(m);
+  enterParty(s, env.rng, m);
+  remember(s, m, "Joined the train.");
   for (const other of living(s)) {
     if (other.id === m.id) continue;
     if (hasTrait(other, "kind")) addBond(s, m.id, other.id, 10);
@@ -435,6 +461,29 @@ export function applyEffect(env: Env, e: Effect, notes: string[]): void {
       }
       if (touched && as.length === 1 && bs.length === 1) {
         notes.push(`${firstName(as[0])} & ${firstName(bs[0])}: bond ${d > 0 ? "+" : ""}${d}`);
+      }
+      return;
+    }
+    case "rel": {
+      const as = resolveWho(env, e.a);
+      const bs = resolveWho(env, e.b);
+      for (const a of as) {
+        for (const b of bs) {
+          if (a.id === b.id || a.isLeader || b.isLeader) continue;
+          changeKind(s, a, b, e.kind);
+          notes.push(`${firstName(a)} & ${firstName(b)}: now ${e.kind.replace("-", " ")}`);
+        }
+      }
+      return;
+    }
+    case "affair":
+      applyAffairOp(env, e.op);
+      return;
+    case "note": {
+      const text = fillText(env, e.text);
+      for (const m of resolveWho(env, e.who)) {
+        remember(s, m, text);
+        (env.bind.noted ??= new Set()).add(m.id);
       }
       return;
     }
@@ -528,6 +577,8 @@ export function applyEffect(env: Env, e: Effect, notes: string[]): void {
         a: e.same ? env.bind.a : undefined,
         b: e.same ? env.bind.b : undefined,
         actor: e.same ? env.bind.actor : undefined,
+        other: e.same ? env.bind.other : undefined,
+        lost: e.same ? env.bind.lost : undefined,
       });
       return;
     }
@@ -549,6 +600,9 @@ export function applyEffect(env: Env, e: Effect, notes: string[]): void {
         m.fate = e.cause ?? "left the train";
         s.stats.departures++;
         notes.push(`${m.name} is gone: ${m.fate}.`);
+        remember(s, m, `Left the train: ${m.fate}.`);
+        for (const other of living(s)) remember(s, other, `${firstName(m)} left the train.`);
+        onDeparture(env, m);
         if (e.takes) {
           for (const id of Object.keys(e.takes) as ResourceId[]) {
             const take = Math.min(s.res[id], e.takes[id] ?? 0);

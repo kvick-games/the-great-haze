@@ -1,6 +1,6 @@
 // Tiny builders so scene content reads like prose rather than plumbing.
 
-import type { Cond, Effect, EndingKind, Line, Outcome, ResourceId, Who } from "../types.ts";
+import type { AffairOp, Cond, Effect, EndingKind, Line, Outcome, RelKind, ResourceId, Who } from "../types.ts";
 import type { Amount } from "../rng.ts";
 
 export const fx = {
@@ -27,6 +27,9 @@ export const fx = {
   flag: (key: string, d = 1): Effect => ({ t: "flag", key, d }),
   kill: (who: Who, cause: string): Effect => ({ t: "kill", who, cause }),
   leave: (who: Who, cause: string, takes?: Partial<Record<ResourceId, number>>): Effect => ({ t: "leave", who, cause, takes }),
+  rel: (a: Who, b: Who, kind: RelKind): Effect => ({ t: "rel", a, b, kind }),
+  affair: (op: AffairOp): Effect => ({ t: "affair", op }),
+  note: (who: Who, text: string): Effect => ({ t: "note", who, text }),
   end: (kind: EndingKind, headline: string, text: string[]): Effect => ({ t: "end", kind, headline, text }),
 };
 

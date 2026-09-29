@@ -67,6 +67,8 @@ import type { MemberTemplate } from "./content/roster.ts";
 import { finish } from "./ending.ts";
 import { baseHazeMiles, catchupMiles, expectedHazeMiles, hoursToMiles, planTravel } from "./travel.ts";
 import { processNight } from "./night.ts";
+import { emptyRel, ensureRel, relationsNight, relationsOf, seedRelations } from "./relationships.ts";
+import type { RelationView } from "./relationships.ts";
 import { rollDay } from "./events.ts";
 import { buildScene, doLook, doRead, hasPair, optionAvailable, resolveOption, requireScene, sceneOptions, sceneText, bindFor } from "./scenes.ts";
 import { combatOptions, combatRound, combatSummary, enemyDef, startCombat } from "./combat.ts";
@@ -102,6 +104,7 @@ function makeMember(tpl: MemberTemplate, isLeader: boolean): Member {
     fog: 0,
     alive: true,
     isLeader,
+    history: [],
   };
 }
 
@@ -118,6 +121,7 @@ export class Game {
   constructor(state: GameState) {
     this.s = state;
     ensureRoute(state);
+    ensureRel(state);
     this.rng = new Rng(state);
   }
 
@@ -145,6 +149,7 @@ export class Game {
       train: { wagons: TUNING.startWagons, condition: 100 },
       party: [],
       bonds: {},
+      rel: emptyRel(),
       pace: "steady",
       rations: "meager",
       today: { hoursUsed: 0, startMiles: 0, hazeMiles: 0, surge: null, forecast: false },
@@ -237,6 +242,7 @@ export class Game {
     }
     // The wagon-master starts with a little goodwill toward the kind.
     for (const m of s.party) if (!m.isLeader && hasTrait(m, "kind")) addBond(s, m.id, leader(s).id, 5);
+    seedRelations(s, this.rng);
     s.pending = { kind: "store", storeId: "cinder-ford" };
     this.initStock("cinder-ford");
   }
@@ -1043,6 +1049,9 @@ export class Game {
 
     // Night crises come before the dawn's arrivals.
     for (const c of night.crises) s.queue.push(c);
+    const rel = relationsNight(env);
+    s.queue.push(...rel.items);
+    notes.push(...rel.notes);
     const arrived = takeArrivals(s);
     s.queue.push(...arrived.items);
     lines.push(...arrived.lines);
@@ -1065,8 +1074,16 @@ export class Game {
     return m ? conditionsOf(m) : [];
   }
 
+  /** How a member stands with everyone else aboard, as the wagon-master knows it (no hidden affairs). */
+  relations(memberId: string): RelationView[] {
+    return relationsOf(this.s, memberId);
+  }
+
   averageNerve(): number {
     return avgNerve(this.s);
   }
 }
 
+
+export { relationsOf } from "./relationships.ts";
+export type { RelationView } from "./relationships.ts";
