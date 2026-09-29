@@ -315,6 +315,25 @@ test("beats carry the screen's speech, check and route; shots voice them as <d> 
   assert.match(sc.main.shots[2].prompt, /Setting: .*The place:/, "route context in the setting");
 });
 
+test("transition shots open on the old state, speak, then change: Dov's death shot", () => {
+  const sc = buildScenario("night-death");
+  const i = sc.main.beats.findIndex((b) => b.mutations.some((m) => m.kind === "death" && m.subject === "dov"));
+  const req = sc.main.shots[i];
+  const lines = h3Prompt(req, sc.main.beats[i]).join("\n");
+  const said = lines.indexOf("Dov Reyes (Image 2), ");
+  assert.ok(said > 0 && req.dialogue.some((d) => d.key === "dov"), "Dov speaks in his death shot");
+  assert.ok(!/dead|lying dead|is dead/i.test(lines.slice(0, said)), "nothing calls him dead before he speaks");
+  assert.ok(lines.indexOf("is dead") > said && lines.indexOf("Ending state: Dov Reyes: lying dead") > said, "the death and the ending state come after");
+  // Opening state slot, then the ending slot, labelled.
+  const dov = req.references.filter((r) => r.character === "dov");
+  assert.equal(dov.find((r) => r.state === "opening")?.slot_key.includes("dead"), false);
+  assert.match(dov.find((r) => r.state === "ending")?.slot_key ?? "", /dead/);
+  assert.match(lines, /Image 2 is Dov Reyes as they are now; Image \d is how they end/);
+  // A settled beat keeps the current state and has no ending slot.
+  const settled = sc.main.shots.find((r) => r.references.length && !r.references.some((x) => x.state));
+  assert.ok(settled, "a non-transition shot exists");
+});
+
 test("every scenario has speech in at least two beats, and the pins keep their named cast", () => {
   const want: Record<string, string[]> = { "stranger-trap": ["stranger.signal-fire", "odalys"], "night-death": ["dov"], "companion-turns": ["juniper"] };
   for (const def of SCENARIOS) {

@@ -42,7 +42,9 @@ export function selectRefs(req: ShotRequest): ShotRequest["references"] {
   };
   const chars = [...new Set(req.references.map((r) => r.character))];
   const lead = chars.slice(0, MAX_NAMED);
-  for (const c of lead) add(req.references.find((r) => r.character === c));
+  for (const c of lead) add(req.references.find((r) => r.character === c && r.state !== "ending"));
+  // A transition shot attaches the ending state beside the opening one.
+  for (const c of lead) add(req.references.find((r) => r.character === c && r.state === "ending"));
   for (const c of lead) add(req.references.find((r) => r.character === c && r.slot_key === "hero"));
   for (const c of chars.slice(MAX_NAMED)) add(req.references.find((r) => r.character === c));
   return out;

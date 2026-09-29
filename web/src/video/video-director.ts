@@ -7,6 +7,7 @@
 // Off by default. When off, every method returns immediately and nothing is recorded.
 
 import type { Game } from "../../../src/game/game.ts";
+import type { Screen } from "../../../src/game/types.ts";
 import { StoryRecorder } from "../../../src/story/recorder.ts";
 import type { Beat, Stakes } from "../../../src/story/mutations.ts";
 import { shotForBeat } from "../../../src/story/shots.ts";
@@ -125,15 +126,20 @@ export class VideoDirector {
 
   /** Capture the state just before a choice. */
   mark(game: Game): string {
-    return this.enabled ? game.serialize() : "";
+    if (!this.enabled) return "";
+    this.screenBefore = game.screen();
+    return game.serialize();
   }
+
+  /** The screen on show when mark() ran: the scene the choice was made on. */
+  private screenBefore: Screen | undefined;
 
   /** Record what the choice did and, if it is worth a clip, start getting one. */
   observe(before: string, game: Game, choiceId: string): Beat | null {
     if (!this.enabled || !this.recorder || !before) return null;
     let beat: Beat | null = null;
     try {
-      beat = this.recorder.record(before, game.serialize(), choiceId);
+      beat = this.recorder.record(before, game.serialize(), choiceId, undefined, { before: this.screenBefore, after: game.screen() });
     } catch (e) {
       console.error("story record failed", e);
       return null;

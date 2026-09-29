@@ -106,28 +106,30 @@ export function h3Prompt(req: ShotRequest, beat: Beat, refs = selectRefs(req)): 
   for (const p of req.participants) {
     const line = req.prompt.split("\n").find((l) => l.startsWith(`${p.name} `) || l.startsWith(`${p.name}:`));
     if (!line) continue;
-    const idx = refs.findIndex((r) => r.character === p.key);
+    const idx = refs.findIndex((r) => r.character === p.key && r.state !== "ending");
+    const endIdx = refs.findIndex((r) => r.character === p.key && r.state === "ending");
     if (idx < 0 && (!named.has(p.key) || cast.length >= MAX_NAMED)) continue;
     const body = line.replace(/\s+/g, " ").replace(/^[^:]+(\(Image \d+\))?:/, "").trim();
-    cast.push(`${p.name}${idx >= 0 ? ` (Image ${idx + 1})` : ""}:${body.startsWith(" ") ? "" : " "}${body}`);
+    cast.push(`${p.name}${idx >= 0 ? (endIdx >= 0 ? ` (Image ${idx + 1} is ${p.name} as they are now; Image ${endIdx + 1} is how they end)` : ` (Image ${idx + 1})`) : ""}:${body.startsWith(" ") ? "" : " "}${body}`);
   }
   const setting = field(req.prompt, "Setting:");
   const happens = without(field(req.prompt, "What happens:"))
     .split(/(?<=[.!?])\s+/)
     .filter((sent) => !/^(You cover \d+ miles|Stops and delays|The Haze advances|The gap is)/.test(sent))
     .join(" ");
-  const show = field(req.prompt, "Show clearly:");
+  const during = field(req.prompt, "Then, during the shot:");
+  const ending = field(req.prompt, "Ending state:");
   const exchange = field(req.prompt, "The exchange:");
   // Spoken lines come from the screen (who says what, how). Quoted text in the narration is the fallback.
   const speech = req.dialogue.length
     ? req.dialogue
         .map((d) => {
-          const idx = refs.findIndex((r) => r.character === d.key);
+          const idx = refs.findIndex((r) => r.character === d.key && r.state !== "ending");
           return `${d.name}${idx >= 0 ? ` (Image ${idx + 1})` : ""}, ${actingOf(d) || "speaking"}: <d>[English] ${d.text}</d>`;
         })
         .join(" ")
     : dialogueOf(beat.text).map((t) => `<d>[English] ${t}</d>`).join(" ");
-  const shot = [CAMERA[beat.kind], setting, ...cast, happens, exchange, show && !happens.includes(show) ? `Show clearly: ${show}` : "", speech, "Keep every named person exactly as in their reference images."]
+  const shot = [CAMERA[beat.kind], setting, ...cast, happens, exchange, speech, during && !happens.includes(during) ? `Then, during the shot: ${during}` : "", ending ? `Ending state: ${ending}` : "", "Keep every named person exactly as in their reference images."]
     .filter(Boolean)
     .join(" ");
   return ["integrated_multimodal_description:", `[Shot 1] ${shot}`, `overall_soundscape: ${SOUND[beat.kind] ?? SOUND.default}`, `non_diegetic_music: ${MUSIC[beat.kind] ?? MUSIC.default}`];

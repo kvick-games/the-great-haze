@@ -29,6 +29,8 @@ export interface ShotReference {
   slot_key: string;
   character: string;
   label: string;
+  /** In a transition shot: the state the shot opens on, or the state it ends on. */
+  state?: "opening" | "ending";
 }
 
 /** A line of speech in a shot, attributed to one of its participants. */
@@ -189,22 +191,30 @@ function propName(key: string): string {
 
 interface Resolved {
   spec: CharacterSpec;
+  /** The look the shot opens on. */
   version: number;
   slot: string;
   label: string;
   look: string;
+  /** Set when this beat changes the person: what they look like when the shot ends. */
+  end?: { version: number; slot: string; label: string; look: string };
 }
+
+/** Mutations that change how a person is drawn. A beat with one is a transition: opening state, action, ending state. */
+const TRANSITION_KINDS = new Set(["death", "turning", "departure", "fog", "fog-ease", "wound", "heal", "maim", "dying", "stabilize", "sick", "recover", "costume", "starving"]);
 
 /** Choose the reference slots. The current variant identifies the look; the base sheet keeps the face. */
 function pickReferences(list: Resolved[]): ShotReference[] {
   const refs: ShotReference[] = [];
-  const add = (r: Resolved, slot: string, label: string) => {
+  const add = (r: Resolved, slot: string, label: string, state?: "opening" | "ending") => {
     if (refs.length >= LIMITS.maxReferenceImages) return;
     const datom_id = etherId("char", r.spec.key);
     if (refs.some((x) => x.datom_id === datom_id && x.slot_key === slot)) return;
-    refs.push({ datom_id, slot_key: slot, character: r.spec.key, label });
+    refs.push({ datom_id, slot_key: slot, character: r.spec.key, label, ...(state ? { state } : {}) });
   };
-  for (const r of list) add(r, r.slot, r.version > 1 ? `${r.spec.name}, ${r.label}` : r.spec.name);
+  for (const r of list) add(r, r.slot, r.version > 1 ? `${r.spec.name}, ${r.label}` : r.spec.name, r.end ? "opening" : undefined);
+  // A transition shot may attach the ending state too, where it has a slot of its own.
+  for (const r of list) if (r.end && r.end.slot !== r.slot) add(r, r.end.slot, `${r.spec.name}, how they end (${r.end.label})`, "ending");
   // Variants alone can lose the face, so the base hero rides along for anyone drawn differently.
   for (const r of list) if (r.version > 1) add(r, "hero", `${r.spec.name}, base look`);
   for (const r of list.slice(0, 3)) add(r, "character_sheet", `${r.spec.name}, character sheet`);
@@ -215,8 +225,9 @@ function composePrompt(input: { title: string; kind: BeatKind; resolved: Resolve
   const lines: string[] = [];
   lines.push("Cinematic dark frontier horror, 24 fps, filmic grain, torchlight and dusk under a sky stained red by the Haze.");
   for (const r of input.resolved) {
-    const idx = input.refs.findIndex((x) => x.character === r.spec.key);
-    const refNote = idx >= 0 ? ` (Image ${idx + 1})` : "";
+    const idx = input.refs.findIndex((x) => x.character === r.spec.key && x.state !== "ending");
+    const endIdx = input.refs.findIndex((x) => x.character === r.spec.key && x.state === "ending");
+    const refNote = idx < 0 ? "" : endIdx >= 0 ? ` (Image ${idx + 1} is ${r.spec.name} as they are now; Image ${endIdx + 1} is how they end)` : ` (Image ${idx + 1})`;
     const change = r.look ? ` Right now: ${r.look}.` : "";
     lines.push(`${r.spec.name}${refNote}: ${visualText(r.spec.visual)}.${change}`);
   }
@@ -224,7 +235,10 @@ function composePrompt(input: { title: string; kind: BeatKind; resolved: Resolve
   lines.push(`What happens: ${input.action}`);
   if (input.checkNote) lines.push(`The exchange: ${input.checkNote}`);
   for (const d of input.dialogue) lines.push(`${d.name} says (${actingOf(d)}): "${d.text}"`);
-  if (input.notes.length) lines.push(`Show clearly: ${input.notes.join(" ")}`);
+  // The change comes after anything the person says: the shot opens on the old state and ends on the new.
+  if (input.notes.length) lines.push(`Then, during the shot: ${input.notes.join(" ")}`);
+  const ends = input.resolved.filter((r) => r.end?.look).map((r) => `${r.spec.name}: ${r.end!.look}`);
+  if (ends.length) lines.push(`Ending state: ${ends.join("; ")}.`);
   lines.push(`Camera: ${CAMERA[input.kind]}`);
   lines.push("Keep every named person exactly as their reference images show. No text, captions or subtitles.");
   return lines.join("\n");
@@ -255,7 +269,7 @@ function build(args: {
   const prompt = composePrompt({ title: args.title, kind: args.kind, resolved: args.resolved, refs, action: args.action, setting: settingText(args.day, args.region, args.place, args.kind), notes: args.notes, dialogue: args.dialogue ?? [], checkNote: args.checkNote ?? "" });
   const participants: ShotParticipant[] = args.resolved.map((r) => ({ key: r.spec.key, name: r.spec.name, datom_id: etherId("char", r.spec.key), version: r.version, slot: r.slot, label: r.label }));
   const route = MODELS[mode];
-  const hashInput = stableStringify({ t: args.templateKey, p: participants.map((p) => `${p.key}@v${p.version}`), e: route.endpoint, r: resolution, d: duration, a: aspect, s: opts.seed ?? null, l: (args.dialogue ?? []).map((d) => `${d.key}:${d.text}`) });
+  const hashInput = stableStringify({ t: args.templateKey, p: args.resolved.map((r) => `${r.spec.key}@v${r.version}${r.end ? `>v${r.end.version}` : ""}`), e: route.endpoint, r: resolution, d: duration, a: aspect, s: opts.seed ?? null, l: (args.dialogue ?? []).map((d) => `${d.key}:${d.text}`) });
   return {
     cacheKey: `${args.templateKey}#${fnv1a(hashInput)}`,
     templateKey: args.templateKey,
@@ -290,13 +304,25 @@ export function shotForBeat(beat: Beat, log: DatomLog, opts: ShotOptions = {}): 
     const spec = specs.find((s) => s.key === key);
     if (!spec) continue;
     const tx = beat.tx || undefined;
-    const look = key.startsWith("archetype.") ? null : lookFromLog(log, key, tx);
-    const vis = key.startsWith("archetype.") ? { version: 1, slot: "hero", label: "base" } : visualFromLog(log, key, tx);
+    const arch = key.startsWith("archetype.");
+    const changes = !arch && !!tx && beat.mutations.some((m) => m.subject === key && TRANSITION_KINDS.has(m.kind));
+    // A transition opens on the state before the beat (each beat is one transaction) and ends on the beat's own.
+    const openTx = changes ? tx! - 1 : tx;
+    const look = arch ? null : lookFromLog(log, key, openTx);
+    const vis = arch ? { version: 1, slot: "hero", label: "base" } : visualFromLog(log, key, openTx);
     const base = spec.kit;
-    resolved.push({ spec, version: vis.version, slot: vis.slot, label: vis.label, look: look ? lookDescription(look, propName, base) : "" });
+    const r: Resolved = { spec, version: vis.version, slot: vis.slot, label: vis.label, look: look ? lookDescription(look, propName, base) : "" };
+    if (changes) {
+      const endLook = lookFromLog(log, key, tx);
+      const endVis = visualFromLog(log, key, tx);
+      if (endLook) r.end = { version: endVis.version, slot: endVis.slot, label: endVis.label, look: lookDescription(endLook, propName, base) };
+    }
+    resolved.push(r);
   }
   const notes = beat.mutations.filter((m) => m.kind !== "look" && m.kind !== "region").map((m) => m.summary);
-  const action = beat.sceneId && beat.text.length ? beat.text.join(" ") : notes.length ? notes.join(" ") : beat.text.length ? beat.text.join(" ") : beat.title;
+  const changing = resolved.filter((r) => r.end).map((r) => r.spec.name);
+  // The action never spells out the change a shot ends on; the change is described after the people have spoken.
+  const action = beat.sceneId && beat.text.length ? beat.text.join(" ") : changing.length ? `The moment builds around ${changing.join(" and ")}.` : notes.length ? notes.join(" ") : beat.text.length ? beat.text.join(" ") : beat.title;
   return build({ templateKey: beat.templateKey, beatId: beat.id, kind: beat.kind, title: beat.title, stakes: beat.stakes, resolved, action, notes, day: beat.day, region: beat.region, place: beat.place, dialogue, checkNote: checkNote(beat.check), opts });
 }
 
