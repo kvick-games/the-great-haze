@@ -1,7 +1,7 @@
 // Types for spoken dialogue, dialogue checks, tells and how people look.
 // Re-exported from types.ts so the rest of the game imports them from one place.
 
-import type { Role, Trait, Who } from "./types.ts";
+import type { Cond, Role, Trait, Who } from "./types.ts";
 
 /** Emotional register of a spoken line. The 3D client maps each to a pose and face. */
 export const MOODS = ["calm", "afraid", "angry", "pleading", "sly", "grieving", "cold"] as const;
@@ -21,6 +21,8 @@ export type Speaker =
   | "observer"
   | "by"
   | "stranger"
+  /** Whoever the witch took most recently and has not returned: their voice, out in the fog. */
+  | "taken"
   | `role:${Role}`
   | `npc:${string}`;
 
@@ -33,6 +35,8 @@ export interface Line {
   gesture?: Gesture;
   /** Party speakers only: what they say instead if they have this trait (first match wins). */
   alt?: Partial<Record<Trait, string>>;
+  /** Only spoken when these hold (a storyline's variants). Every variant counts toward a scene's line limit. */
+  when?: Cond[];
 }
 
 export type SpeakerKind = "member" | "stranger" | "npc";

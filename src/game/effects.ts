@@ -23,6 +23,8 @@ import {
 } from "./party.ts";
 import { applyAffairOp, changeKind, enterParty, kindOf, onDeath, onDeparture } from "./relationships.ts";
 import { ITEMS, TUNING } from "./tuning.ts";
+import { applyMark, applyWitchEffect, captivesOf, nameList, takenOf } from "./witch.ts";
+import { expectedHazeMiles } from "./travel.ts";
 import { RECRUITS } from "./content/roster.ts";
 import type { MemberTemplate } from "./content/roster.ts";
 import { finish } from "./ending.ts";
@@ -149,6 +151,11 @@ export function resolveWho(env: Env, who: Who): Member[] {
     }
     case "fogsick":
       return alive.filter((m) => m.fog > 0);
+    case "taken": {
+      // The most recent one the witch took who is still away or lost. They are not alive.
+      const gone = takenOf(s);
+      return gone.length ? [gone[gone.length - 1]] : [];
+    }
     case "weakest": {
       // The wagon-master is never the one who volunteers; the run ends with them.
       const pool = alive.filter((m) => !m.isLeader);
@@ -160,11 +167,22 @@ export function resolveWho(env: Env, who: Who): Member[] {
 }
 
 export function fillText(env: Env, text: string): string {
-  return text.replace(/\{(actor|other|a|b|leader|by|lost)\}/g, (_, key: string) => {
+  return text.replace(/\{(actor|other|a|b|leader|by|lost|captive|captives|taken|hazeday|gap)\}/g, (_, key: string) => {
     if (key === "leader") return firstName(leader(env.s));
     if (key === "lost") {
       const m = byId(env.s, env.bind.lost);
       return m ? firstName(m) : "someone";
+    }
+    if (key === "hazeday") return String(Math.round(expectedHazeMiles(env.s)));
+    if (key === "gap") return String(Math.round(env.s.gap));
+    if (key === "captives") return nameList(captivesOf(env.s));
+    if (key === "captive") {
+      const c = captivesOf(env.s)[0];
+      return c ? firstName(c) : "them";
+    }
+    if (key === "taken") {
+      const t = takenOf(env.s);
+      return t.length ? firstName(t[t.length - 1]) : "them";
     }
     if (key === "by") {
       const m = byId(env.s, env.bind.by);
@@ -223,6 +241,7 @@ export function evalCond(env: Env, c: Cond): boolean {
       }),
     );
   }
+  if ("captives" in c) return captivesOf(s).length >= c.captives;
   if ("not" in c) return !evalCond(env, c.not);
   return c.any.some((x) => evalCond(env, x));
 }
@@ -590,6 +609,19 @@ export function applyEffect(env: Env, e: Effect, notes: string[]): void {
       return;
     case "kill": {
       for (const m of resolveWho(env, e.who)) killMember(env, m, e.cause ?? "killed", notes);
+      return;
+    }
+    case "abduct":
+    case "restore":
+    case "lose":
+    case "giveCrew":
+    case "days":
+    case "flagSet":
+      applyWitchEffect(env, e, notes);
+      return;
+    case "mark": {
+      if (e.chance !== undefined && !rng.chance(e.chance)) return;
+      for (const m of resolveWho(env, e.who)) applyMark(m, e.mark, notes);
       return;
     }
     case "leave": {

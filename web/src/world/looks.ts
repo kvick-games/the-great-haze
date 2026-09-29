@@ -233,6 +233,7 @@ export const ENEMY_LOOKS: Record<string, Look> = {
   starving: { hat: "bare", coat: 0x2a2620, trousers: 0x1a1612, accent: 0x3a3228, skin: SKINS[2], build: "gaunt" },
   hollowed: { hat: "bare", coat: 0x3a3634, trousers: 0x2a2826, accent: 0x4a2020, skin: 0x8a8886, build: "gaunt", hollow: true },
   longman: { hat: "bare", coat: 0x1a1818, trousers: 0x141212, accent: 0x3a1010, skin: 0x9a9894, build: "long", hollow: true },
+  witch: { hat: "hood", coat: 0x0e0c0c, trousers: 0x0a0808, accent: 0x6a1414, skin: 0xb8b0a4, build: "gaunt", longCoat: true },
   stranger: { hat: "wide", coat: 0x2e261e, trousers: 0x171411, accent: 0x5a4a3a, skin: SKINS[1], build: "normal" },
   woman: { hat: "bonnet", coat: 0x2a2228, trousers: 0x171411, accent: 0x6a5a5a, skin: SKINS[2], build: "slight" },
   child: { hat: "bare", coat: 0x3a3026, trousers: 0x171411, accent: 0x5a3a2a, skin: SKINS[3], build: "child" },

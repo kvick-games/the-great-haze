@@ -384,7 +384,7 @@ export class Director {
       // Departures are worded "walked…", "turned…", "left…", "took…"; anything else is a death.
       if (/^(walked|turned)/.test(fate)) {
         tr.dismiss(id, p.clone().add(new THREE.Vector3(3, 0, 30)));
-      } else if (/^(left|took)/.test(fate)) {
+      } else if (/^(left|took|taken|kept)/.test(fate)) {
         tr.dismiss(id, p.clone().add(new THREE.Vector3(-26, 0, 8)));
       } else {
         tr.dismiss(id, undefined, true);

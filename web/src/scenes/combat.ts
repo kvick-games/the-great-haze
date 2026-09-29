@@ -91,7 +91,7 @@ export class CombatStage {
         legs = h.legs;
       } else {
         const look =
-          enemyId === "raiders" ? ENEMY_LOOKS.raider : enemyId === "toll-thugs" ? ENEMY_LOOKS.thug : enemyId === "mob" ? ENEMY_LOOKS.starving : enemyId === "long-man" ? ENEMY_LOOKS.longman : ENEMY_LOOKS.hollowed;
+          enemyId === "raiders" ? ENEMY_LOOKS.raider : enemyId === "toll-thugs" ? ENEMY_LOOKS.thug : enemyId === "mob" ? ENEMY_LOOKS.starving : enemyId === "long-man" ? ENEMY_LOOKS.longman : enemyId === "witch" ? ENEMY_LOOKS.witch : ENEMY_LOOKS.hollowed;
         fig = new Figure(look);
         if (def.tags.includes("hollowed")) fig.eyeGlow = 1;
         if ((enemyId === "raiders" || enemyId === "toll-thugs") && i % 2 === 0) fig.holdRifle(true);

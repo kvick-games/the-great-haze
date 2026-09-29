@@ -77,7 +77,7 @@ test("every speaker resolves in the scene that uses it", () => {
     else if (who === "observer") assert.ok(def.tells?.length, `${at.where}: "observer" needs a scene with tells`);
     else if (who === "a" || who === "b") assert.ok(def.pairWeight || def.bound, `${at.where}: "${who}" needs a scene with a pair (or a bound scene)`);
     else if (who === "by") assert.ok(at.hasCheck, `${at.where}: "by" needs an option with a check`);
-    else assert.ok(["leader", "actor", "other"].includes(who), `${at.where}: unknown speaker ${who}`);
+    else assert.ok(["leader", "actor", "other", "taken"].includes(who), `${at.where}: unknown speaker ${who}`);
   }
 });
 

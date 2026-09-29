@@ -9,6 +9,7 @@ import { COMPANION_SCENES } from "./companions.ts";
 import { ROMANCE_SCENES } from "./romance.ts";
 import { AFFAIR_SCENES } from "./affairs.ts";
 import { BOND_SCENES } from "./bonds.ts";
+import { WITCH_SCENES } from "./witch.ts";
 
 export const SCENES: SceneDef[] = [
   ...HAZARDS,
@@ -25,6 +26,7 @@ export const SCENES: SceneDef[] = [
   ...ROMANCE_SCENES,
   ...AFFAIR_SCENES,
   ...BOND_SCENES,
+  ...WITCH_SCENES,
 ];
 
 const BY_ID = new Map<string, SceneDef>(SCENES.map((s) => [s.id, s]));

@@ -183,6 +183,18 @@ export function processNight(env: Env, restQuality: number): NightReport {
       crises.push({ t: "scene", id: "deserter", actor: m.id });
     }
   }
+  // The witch, once her signs were seen, comes on the night she chose.
+  if ((s.flags["witch:stage"] ?? 0) === 1 && s.day >= (s.flags["witch:due"] ?? Infinity) && living(s).some((m) => !m.isLeader)) {
+    crises.push({ t: "scene", id: "witch-takes" });
+  }
+  // Someone the witch touched talks in their sleep, in a voice that is not theirs.
+  for (const m of living(s)) {
+    if (m.marks && m.marks.includes("witch-touched") && rng.chance(0.15)) {
+      lines.push(`${firstName(m)} talks in their sleep, in a woman's voice. The others do not sleep after.`);
+      for (const o of living(s)) if (o.id !== m.id) changeNerve(o, -1);
+      break;
+    }
+  }
   if (avgNerve(s) < 12 && living(s).length) lines.push("Nobody is speaking. Even the oxen are quiet.");
   return { lines, notes, crises, starving };
 }

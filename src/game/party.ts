@@ -1,6 +1,6 @@
 // Party helpers: who is alive, who can act, bonds between members, death.
 
-import type { GameState, Member, Trait, Role, MemberView, Resources } from "./types.ts";
+import type { GameState, Mark, Member, Trait, Role, MemberView, Resources } from "./types.ts";
 import { ITEMS, TUNING } from "./tuning.ts";
 import { npcById } from "./content/npcs.ts";
 
@@ -16,6 +16,7 @@ export function changeNerve(m: Member, d: number): number {
   if (d < 0) {
     let mult = 1;
     for (const t of m.traits) mult *= NERVE_LOSS_MULT[t] ?? 1;
+    if (m.marks && m.marks.includes("hexed")) mult *= 1.3;
     delta = -Math.round(-d * mult);
   }
   const before = m.nerve;
@@ -64,6 +65,15 @@ export function anyTrait(s: GameState, t: Trait): boolean {
   return able(s).some((m) => m.traits.includes(t));
 }
 
+export function hasMark(m: Member, mark: Mark): boolean {
+  return !!m.marks && m.marks.includes(mark);
+}
+
+/** Can this person hear the Haze coming? Haunted people and the witch-touched can. */
+export function hearsHaze(m: Member): boolean {
+  return hasTrait(m, "haunted") || hasMark(m, "witch-touched");
+}
+
 export function pairKey(a: string, b: string): string {
   return a < b ? `${a}|${b}` : `${b}|${a}`;
 }
@@ -108,6 +118,7 @@ export function conditionsOf(m: Member): string[] {
   if (m.fog > 0) out.push(m.fog >= 3 ? "turning" : m.fog === 2 ? "fogsick II" : "fogsick I");
   if (m.nerve < TUNING.breakingNerve) out.push("breaking");
   else if (m.nerve < TUNING.lowNerve) out.push("frayed");
+  for (const mark of m.marks ?? []) out.push(mark);
   return out;
 }
 

@@ -9,6 +9,7 @@ import { TUNING } from "./tuning.ts";
 import { ENEMIES } from "./content/enemies.ts";
 import type { EnemyDef } from "./content/enemies.ts";
 import { finish } from "./ending.ts";
+import { applyMark, captivesOf } from "./witch.ts";
 
 export function enemyDef(id: string): EnemyDef {
   const def = ENEMIES[id];
@@ -23,9 +24,10 @@ function progress(s: GameState): number {
 export function startCombat(env: Env, enemyId: string): { combat: CombatInstance; notes: string[] } {
   const def = enemyDef(enemyId);
   const { s, rng } = env;
-  const maxHp = Math.round(def.hp * rng.float(0.85, 1.15) * (1 + progress(s) * 0.35));
+  const weak = def.weakenedBy && (s.flags[def.weakenedBy.flag] ?? 0) > 0 ? def.weakenedBy.mult : 1;
+  const maxHp = Math.round(def.hp * rng.float(0.85, 1.15) * (1 + progress(s) * 0.35) * weak);
   const notes: string[] = [];
-  const dread = def.tags.includes("hollowed") ? -3 : -1;
+  const dread = def.tags.includes("hollowed") ? -3 : def.tags.includes("witch") ? -2 : -1;
   for (const m of living(s)) changeNerve(m, dread);
   notes.push(`Everyone: ${dread} nerve`);
   s.today.hoursUsed += 0.5;
@@ -146,6 +148,8 @@ export function combatRound(env: Env, c: CombatInstance, tactic: string): Combat
   s.today.hoursUsed += 0.5;
   s.stats.hoursLost += 0.5;
   let extraHits = 0;
+  const hpBefore = c.hp;
+  const held = captivesOf(s);
 
   const fighters = able(s);
   if (!fighters.length) {
@@ -255,6 +259,15 @@ export function combatRound(env: Env, c: CombatInstance, tactic: string): Combat
       throw new Error(`Unknown combat tactic: ${tactic}`);
   }
 
+  // A witch who holds people keeps them between herself and the guns.
+  if (def.shield && held.length && c.hp < hpBefore) {
+    const undone = Math.round((hpBefore - c.hp) * def.shield);
+    if (undone > 0) {
+      c.hp += undone;
+      step.lines.push(`She turns ${firstName(held[0])} to face you. ${undone} of it never reaches her.`);
+    }
+  }
+
   if (c.hp <= 0) return endCombat(env, def, "victory", step);
 
   // Enemy turn.
@@ -277,6 +290,30 @@ export function combatRound(env: Env, c: CombatInstance, tactic: string): Combat
   }
   if (def.tags.includes("hollowed")) {
     for (const m of living(s)) if (!hasTrait(m, "stoic") && !hasTrait(m, "veteran")) changeNerve(m, -1);
+  }
+  // Her voice, then her puppets: the nasty parts of fighting a witch.
+  if (def.hex && rng.chance(def.hex.chance)) {
+    const victim = pickTarget(env);
+    if (victim) {
+      const lost = rng.int(def.hex.nerve[0], def.hex.nerve[1]);
+      changeNerve(victim, -lost);
+      step.lines.push(`Her voice finds ${firstName(victim)}'s worst night and reads it aloud. -${lost} nerve.`);
+      if (rng.chance(def.hex.mark)) applyMark(victim, "hexed", step.notes);
+    }
+  }
+  if (def.puppets && held.length && rng.chance(def.puppets.chance)) {
+    const puppet = rng.pick(held);
+    const victim = pickTarget(env);
+    if (victim) {
+      const dmg = rng.int(def.puppets.dmg[0], def.puppets.dmg[1]);
+      step.lines.push(`She turns ${firstName(puppet)} on ${firstName(victim)}. ${firstName(puppet)} is crying and swinging anyway. ${dmg} damage.`);
+      hurt(env, victim, dmg, step.notes);
+      addBond(s, victim.id, puppet.id, -3);
+      if (s.ending) {
+        step.done = true;
+        return step;
+      }
+    }
   }
 
   if (def.canFlee && c.hp <= c.maxHp * 0.35 && rng.chance(0.5)) return endCombat(env, def, "routed", step);

@@ -8,7 +8,7 @@ import { chooseOption, makeRand, shop } from "../tools/bots.ts";
 test("save and restore at every step of a full run stays in lock-step, with route scenes and companions", () => {
   let routeScenes = 0;
   let recruited = 0;
-  for (const [seed, strat] of [[3, "random"], [8, "reckless"], [14, "random"], [21, "reckless"], [5, "random"], [9, "random"]] as const) {
+  for (const [seed, strat] of [[3, "random"], [8, "reckless"], [14, "random"], [21, "reckless"], [5, "random"], [9, "random"], [7, "random"], [12, "random"], [15, "random"], [16, "random"], [23, "random"], [27, "random"]] as const) {
     const a = Game.create({ seed, leaderName: "Jo", background: "surveyor" });
     let b = Game.restore(a.serialize());
     const ra = makeRand(seed);
