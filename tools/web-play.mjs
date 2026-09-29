@@ -77,6 +77,7 @@ const firstShot = async (k, extra = "") => {
   if (n < (k === "scene" || k === "combat" ? 3 : 1)) await shot(`${String(seen.size).padStart(2, "0")}-${key}-${n}`);
 };
 let steps = 0;
+const samples = [];
 let result = "incomplete";
 while (steps++ < maxSteps) {
   await idle();
@@ -90,6 +91,30 @@ while (steps++ < maxSteps) {
   if (k === "ending") {
     result = title ?? "ending";
     break;
+  }
+  // PROBE runs keep the party alive so the run reaches many days, regions and scene kinds.
+  if (process.env.PROBE && k !== "ending") {
+    await page.evaluate(() => {
+      const s = window.__haze.director.game?.s;
+      if (!s) return;
+      s.gap = Math.max(s.gap, 50);
+      for (const m of s.party) {
+        m.health = 100;
+        m.nerve = 100;
+        m.dying = false;
+      }
+      s.res.rations = Math.max(s.res.rations, 60);
+      s.res.torches = Math.max(s.res.torches, 20);
+    });
+  }
+  // GPU memory over the run (PROBE=1): geometries and textures alive in the renderer.
+  if (process.env.PROBE && steps % Number(process.env.PROBE_EVERY ?? 10) === 0) {
+    const m = await page.evaluate(() => {
+      const r = window.__haze.world.renderer.info;
+      return { g: r.memory.geometries, t: r.memory.textures, p: r.programs?.length ?? 0, day: window.__haze.director.game?.s.day ?? 0 };
+    });
+    samples.push({ step: steps, ...m });
+    console.log(`probe step ${steps} day ${m.day}: geometries ${m.g}, textures ${m.t}, programs ${m.p}`);
   }
   let btn;
   if (k === "plan") btn = page.locator(".opt.primary");
