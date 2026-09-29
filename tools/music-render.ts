@@ -57,7 +57,9 @@ const REPRESENTATIVE = {
   fork: { states: { scene: "fork" }, params: { haze: 0.2 } },
   landmark: { states: { scene: "landmark" }, params: {} },
   combat: { states: { scene: "combat" }, params: { intensity: 0.9, danger: 0.8 } },
-  grief: { states: { mourning: "yes" }, params: {} },
+  grief: { states: { mourning: "yes", focus: "hollis" }, params: {} },
+  romance: { states: { scene: "scene", scenario: "tender", focus: "mattie" }, params: { haze: 0.2 } },
+  betrayal: { states: { scene: "scene", scenario: "betrayal", focus: "rue" }, params: { danger: 0.3, haze: 0.2 } },
   "ending-victory": { states: { scene: "ending", ending: "victory" }, params: {} },
   "ending-loss": { states: { scene: "ending", ending: "loss" }, params: {} },
 };
@@ -123,7 +125,7 @@ function stepView(step, previous) {
     state: { day: step.day ?? 0, gap: step.gap ?? 60, pending: step.pending ?? { kind: "plan" }, party: p, ending: step.ending ? { kind: step.ending, headline: "", lines: [], score: 0 } : null },
     screenKind: step.kind, regionId: step.region ?? "tallow", zone: step.zone ?? "far",
     night: step.night ?? 0, camp: step.camp ?? 0, moving: step.moving ?? 0, busy: !!step.busy,
-    mourning: !!step.mourning, previous,
+    mourning: !!step.mourning, mournFor: step.mourning ? step.dead ?? null : null, previous,
   };
 }
 
@@ -179,11 +181,14 @@ type Marker = { type: string; time: number; section?: string; from?: string | nu
 type Rendered = { wav: string; levels: Levels; windows: Levels[]; markers: Marker[]; noteCount: number };
 
 const failures: string[] = [];
+/** The score's master limiter ceiling (mix.ceilingDb): no render may peak above it. */
+const CEILING_DB = -3;
 const fmt = (l: Levels) =>
   `peak ${l.peakDb.toFixed(1)} dBFS, rms ${l.rmsDb.toFixed(1)} dBFS, silent ${(l.silentFraction * 100).toFixed(0)}%, longest silence ${l.longestSilence.toFixed(1)} s, clipped ${l.clippedSamples}`;
 function check(name: string, l: Levels): string {
   const bad: string[] = [];
   if (l.clippedSamples > 0) bad.push("clipping");
+  if (l.peakDb > CEILING_DB + 0.05) bad.push(`peak over ${CEILING_DB} dBFS`);
   if (l.rmsDb < -40) bad.push("too quiet");
   if (l.longestSilence > 4) bad.push("long silence");
   if (l.silentFraction > 0.35) bad.push("mostly silent");

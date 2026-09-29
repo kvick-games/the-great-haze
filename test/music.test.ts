@@ -10,12 +10,13 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runBot } from "../tools/bots.ts";
 import { NPCS } from "../src/game/content/npcs.ts";
-import { COMPANION_IDS, hazeLevel, musicCues, musicScene, newlyDead, zoneWorsened, type MusicScene, type MusicView } from "../web/src/music/cues.ts";
+import { SCENES } from "../src/game/content/scenes/index.ts";
+import { COMPANION_IDS, RELATIONSHIP_MOOD, hazeLevel, isWitch, musicCues, musicScene, newlyDead, zoneWorsened, type MusicScene, type MusicView } from "../web/src/music/cues.ts";
 import type { GameState, Screen } from "../src/game/types.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 type Rule = { section: string; when: Record<string, string | string[]> };
-type Layer = { kind: string; motif?: string; motifFrom?: { state: string; map: Record<string, string>; fallback?: string | null } };
+type Layer = { id?: string; kind: string; motif?: string; when?: { state?: string; is?: string }[]; motifFrom?: { state: string; map: Record<string, string>; fallback?: string | null } };
 const score = JSON.parse(readFileSync(join(root, "assets/music/the-great-haze.dtscore.json"), "utf8")) as {
   schema: string;
   motifs: Record<string, unknown>;
@@ -64,11 +65,11 @@ test("the score is well formed where the game depends on it", () => {
 });
 
 test("every named companion has a theme at camp and in scenes", () => {
-  for (const sectionId of ["camp", "scene"]) {
+  for (const sectionId of ["camp", "scene", "romance", "betrayal", "grief"]) {
     const layer = score.sections[sectionId].layers.find((l) => l.motifFrom?.state === "focus");
     assert.ok(layer, `${sectionId} has no character theme layer`);
     for (const npc of NPCS) assert.ok(layer.motifFrom!.map[npc.id], `${sectionId}: no theme for ${npc.id}`);
-    assert.ok(layer.motifFrom!.map.witch, `${sectionId}: no theme for the witch`);
+    if (sectionId === "camp" || sectionId === "scene") assert.ok(layer.motifFrom!.map.witch, `${sectionId}: no theme for the witch`);
   }
   assert.equal(COMPANION_IDS.size, NPCS.length);
 });
@@ -146,4 +147,62 @@ test("bot runs map every screen to a section, with themes, deaths and endings", 
   assert.ok(deaths > 0 && sections.has("grief"), "a death should bring the grief section");
   assert.ok(focuses.size > 0, "some scene or camp should carry a companion theme");
   assert.ok(endings.size > 0);
+});
+
+/** A view of a scene screen, with a party that includes every companion. */
+function sceneView(id: string, roles: { actor?: string; a?: string; b?: string; other?: string; lost?: string } = {}): MusicView {
+  const party = [{ id: "leader", alive: true, health: 10, maxHealth: 10 }, ...NPCS.map((n) => ({ id: n.id, alive: n.id !== roles.lost, health: 8, maxHealth: 8 }))];
+  const pending = { kind: "scene", scene: { id, truth: "none", tells: [], looks: 0, ...roles } };
+  return {
+    state: { day: 3, gap: 60, pending, party, ending: null } as unknown as GameState,
+    screenKind: "scene",
+    regionId: "fen",
+    zone: "far",
+    night: 0,
+    camp: 0,
+    moving: 0,
+    busy: false,
+    mourning: false,
+    previous: "trail",
+  };
+}
+
+test("relationship scenes play tender, betrayal or lament music with the right person's theme", () => {
+  const rel = SCENES.filter((s) => s.id.startsWith("rel-")).map((s) => s.id);
+  assert.ok(rel.length >= 29, `expected the relationship scenes, found ${rel.length}`);
+  for (const id of Object.keys(RELATIONSHIP_MOOD)) assert.ok(rel.includes(id), `RELATIONSHIP_MOOD names unknown scene ${id}`);
+  const unmapped = rel.filter((id) => !RELATIONSHIP_MOOD[id]);
+  assert.deepEqual(unmapped, ["rel-rival-brawl"], "every relationship scene but the rivals' brawl has a mood");
+  const [p, q] = NPCS.map((n) => n.id);
+  const expected = { tender: "romance", betrayal: "betrayal", lament: "grief" } as const;
+  for (const [id, mood] of Object.entries(RELATIONSHIP_MOOD)) {
+    const { states, params } = musicCues(sceneView(id, { actor: p, a: p, b: q, lost: q }));
+    assert.equal(states.scenario, mood, id);
+    assert.equal(sectionFor(states), expected[mood], id);
+    assert.equal(states.focus, mood === "lament" ? q : p, `${id}: whose theme`);
+    if (mood !== "betrayal") assert.ok(params.danger < 0.4, `${id} should not pulse like a crisis`);
+  }
+  // A mourning after a death plays the dead companion's theme.
+  const mourn = musicCues({ ...sceneView("rel-grief-lover"), screenKind: "result", mourning: true, mournFor: q });
+  assert.equal(sectionFor(mourn.states), "grief");
+  assert.equal(mourn.states.focus, q);
+});
+
+test("the witch storyline and the witch enemy carry the witch's theme", () => {
+  for (const id of ["witch-signs", "witch-fog-lure", "witch-takes", "witch-bargain", "witch-door", "witch-voice"]) {
+    assert.ok(isWitch(id), id);
+    const { states } = musicCues(sceneView(id, { actor: NPCS[0].id }));
+    assert.equal(states.scenario, "witch", id);
+    assert.equal(states.focus, "witch", id);
+    assert.equal(sectionFor(states), "scene", id);
+  }
+  const fight: MusicView = { ...sceneView("x"), screenKind: "combat" };
+  (fight.state as unknown as { pending: unknown }).pending = { kind: "combat", combat: { enemy: "witch", hp: 10, maxHp: 10, round: 1, stagger: 0, log: [] } };
+  const { states, params } = musicCues(fight);
+  assert.equal(sectionFor(states), "combat");
+  assert.equal(states.scenario, "witch");
+  assert.ok(params.danger >= 0.5);
+  const layer = score.sections.combat.layers.find((l) => l.motif === "witch");
+  assert.ok(layer?.when?.some((w) => w.state === "scenario" && w.is === "witch"), "combat plays the witch theme when she is the enemy");
+  assert.ok(score.stingers.witch, "the witch has an entrance stinger");
 });

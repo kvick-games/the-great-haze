@@ -16,8 +16,8 @@ from what the player sees to the score's **states** and **parameters**:
 |---|---|
 | `scene` | title, muster, town, trail, camp, scene, fork, landmark, combat, ending |
 | `region` | tallow, fen, flats, pines, spine, threshold (each trail region has its own section and palette) |
-| `scenario` | the scene kind (stranger, hazard, find, haze, oddity, respite, dispute, crisis, landmark) or witch |
-| `focus` | the companion a scene is about, or one companion per night at camp; the witch |
+| `scenario` | the scene kind (stranger, hazard, find, haze, oddity, respite, dispute, crisis, landmark); a relationship mood (tender, betrayal, lament); or witch |
+| `focus` | the companion a scene is about (for a lament, the one who died), one companion per night at camp, the companion being mourned; the witch |
 | `ending` | victory, loss |
 | `mourning` | yes for a while after a death |
 
@@ -26,12 +26,27 @@ motif rise with it over the trail, camp and forks), `danger`, `intensity` and
 `night`. The score's rules pick the section; transitions land on beats (combat)
 or bar lines.
 
+Relationship scenes (`rel-*`) are crisis-kind for the simulation but get their
+own music, listed in `RELATIONSHIP_MOOD` in `web/src/music/cues.ts`: courtship,
+lovers, weddings and loyal friends play **tender** (the romance section, in F
+major, with a slow, tender variant of the companion's theme and the trail
+theme); affairs, jealousy and lovers' quarrels play **betrayal** (harmonic
+minor, a creeping betrayal motif under a soured companion theme); grief for a
+lover or friend plays the **grief** section with the dead companion's theme.
+The rivals' brawl stays a plain crisis. Witch scenes (any id containing witch,
+hag or crone, e.g. `witch-signs`) and the `witch` enemy in combat carry the
+witch's theme, and she gets an entrance stinger each time she appears.
+
 `web/src/music/controller.ts` polls the director four times a second, tolls a
-bell stinger and holds the grief section when someone dies, plays the Haze
-stinger when the zone worsens, and ducks the music while a conversation runs or
-speech synthesis is speaking. `GameMusic.duck(on)` is the explicit hook: the
-speech voice (`web/src/talk/voice.ts`) or a recorded voice pack can call it
-around each line instead of relying on the polling.
+bell stinger and holds the grief section (playing the dead companion's theme)
+when someone dies, plays the Haze stinger when the zone worsens, and ducks the
+music under speech. The speech voice (`web/src/talk/voice.ts`) calls
+`GameMusic.duck(on)` as each line starts and ends (through
+`voice.setDucker`, wired in `main.ts`); an active conversation or speech
+synthesis still speaking ducks it too, as a fallback.
+
+The score's master limiter (`mix.ceilingDb`, -3 dBFS) keeps overlapping
+stingers from peaking above -3 dBFS; material under the threshold is untouched.
 
 ## Themes
 
@@ -39,7 +54,7 @@ The trail theme recurs in almost every section, in that section's key and mode
 (major for the victory ending). Themes are written as scale degrees and vary by
 seed after their opening notes, so repeats stay recognizable. Other themes: the
 Haze (a rising minor second), one per named companion, the witch, one per
-scenario kind, the fork, landmarks and grief.
+scenario kind, betrayal, the fork, landmarks and grief.
 
 ## Controls and headless runs
 
@@ -58,7 +73,7 @@ music host from a DreamEngine checkout: `DREAMENGINE_DIR`, or the nearest
 
 - `node tools/music-render.ts` renders every section, the Haze closing in, and a
   scripted run through the cue mapping to `artifacts/music/*.wav`, checks their
-  levels, and writes `artifacts/music/report.txt` (sections, themes and
+  levels (including the -3 dBFS peak ceiling), and writes `artifacts/music/report.txt` (sections, themes and
   stingers over time). It also checks the built game's host is inert under
   automation and that the control persists. Never commit the WAVs.
 - `node tools/music-register.ts` refreshes the score's registration (size and

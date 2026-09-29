@@ -14,7 +14,10 @@ export type MusicScene = "title" | "muster" | "town" | "trail" | "camp" | "scene
 export interface MusicStates {
   scene: MusicScene;
   region: RegionId;
-  /** The kind of situation on the road (stranger, hazard, haze...), or "none". */
+  /**
+   * The kind of situation on the road (stranger, hazard, haze...), a relationship
+   * mood (tender, betrayal, lament), "witch", or "none".
+   */
   scenario: string;
   /** Whose theme to play: a named companion, the witch, or "none". */
   focus: string;
@@ -48,6 +51,8 @@ export interface MusicView {
   busy: boolean;
   /** Someone recently died and the grief section should hold. */
   mourning: boolean;
+  /** Who is being mourned, so the grief section can remember their theme. */
+  mournFor?: string | null;
   /** The scene state before this one, so a result screen can stay where it was. */
   previous: MusicScene | null;
 }
@@ -66,16 +71,58 @@ export function hazeLevel(gap: number): number {
   return clamp01((50 - gap) / 45);
 }
 
-function isWitch(id: string | undefined): boolean {
+/** Witch scenes (witch-signs, witch-fog-lure, ...), the witch enemy, or anything hag- or crone-named. */
+export function isWitch(id: string | undefined): boolean {
   return !!id && /witch|hag|crone/i.test(id);
 }
+
+export type RelationshipMood = "tender" | "betrayal" | "lament";
+
+/**
+ * The relationship scenes (rel-*) by mood: courtship, love and loyal friendship
+ * play tender; affairs, jealousy and quarrels between lovers play betrayal;
+ * grief for a lover or friend plays the lament. Bad blood between rivals is a
+ * plain crisis. Unlisted rel- scenes fall back to their scene kind.
+ */
+export const RELATIONSHIP_MOOD: Readonly<Record<string, RelationshipMood>> = {
+  "rel-courtship-spark": "tender",
+  "rel-watch-together": "tender",
+  "rel-lovers-moment": "tender",
+  "rel-proposal": "tender",
+  "rel-wedding": "tender",
+  "rel-reconcile": "tender",
+  "rel-friends-bond": "tender",
+  "rel-shared-watch": "tender",
+  "rel-loyalty-rescue": "tender",
+  "rel-vigil": "tender",
+  "rel-affair-glimpse": "betrayal",
+  "rel-affair-evidence": "betrayal",
+  "rel-confidant": "betrayal",
+  "rel-confrontation": "betrayal",
+  "rel-caught-in-act": "betrayal",
+  "rel-confession": "betrayal",
+  "rel-blackmail": "betrayal",
+  "rel-whispers": "betrayal",
+  "rel-affair-ends": "betrayal",
+  "rel-jealous-spat": "betrayal",
+  "rel-triangle-standoff": "betrayal",
+  "rel-triangle-brawl": "betrayal",
+  "rel-breakup": "betrayal",
+  "rel-lovers-quarrel": "betrayal",
+  "rel-grief-lover": "lament",
+  "rel-grief-friend": "lament",
+  "rel-lover-follows": "lament",
+  "rel-widow-rite": "lament",
+};
 
 /** The person a scene is about, if they have a theme. */
 function sceneFocus(pending: Pending, sceneId: string | undefined): string {
   if (isWitch(sceneId)) return "witch";
   if (pending.kind !== "scene") return "none";
   const inst = pending.scene;
-  for (const id of [inst.actor, inst.a, inst.b, inst.other]) {
+  // A lament remembers the one who is gone.
+  const order = sceneId && RELATIONSHIP_MOOD[sceneId] === "lament" ? [inst.lost, inst.actor, inst.a] : [inst.actor, inst.a, inst.b, inst.other];
+  for (const id of order) {
     if (!id) continue;
     if (isWitch(id)) return "witch";
     if (COMPANION_IDS.has(id)) return id;
@@ -125,17 +172,27 @@ export function musicCues(view: MusicView): { states: MusicStates; params: Music
   const haze = s ? hazeLevel(s.gap) : 0;
   const sceneId = s && s.pending.kind === "scene" ? s.pending.scene.id : undefined;
   const sceneKind = sceneId ? SCENE_KIND.get(sceneId) : undefined;
+  const mood = sceneId ? RELATIONSHIP_MOOD[sceneId] : undefined;
+  const witchFight = scene === "combat" && s?.pending.kind === "combat" && isWitch(s.pending.combat.enemy);
   let scenario = "none";
-  if (scene === "scene" || scene === "landmark") scenario = isWitch(sceneId) ? "witch" : sceneKind ?? "stranger";
+  if (scene === "scene" || scene === "landmark") scenario = isWitch(sceneId) ? "witch" : mood ?? sceneKind ?? "stranger";
+  else if (witchFight) scenario = "witch";
   let focus = "none";
   if (s && (scene === "scene" || scene === "landmark")) focus = sceneFocus(s.pending, sceneId);
   else if (s && scene === "camp") focus = campFocus(s);
+  else if (witchFight) focus = "witch";
+  const mourning = view.mourning && scene !== "ending" && scene !== "combat";
+  // The grief section plays the theme of whoever is being mourned.
+  if (mourning && view.mournFor && COMPANION_IDS.has(view.mournFor)) focus = view.mournFor;
 
   let ending: MusicStates["ending"] = "none";
   if (scene === "ending") ending = s?.ending?.kind === "victory" ? "victory" : "loss";
 
   let danger = haze * 0.6;
-  if (sceneKind === "crisis" || sceneKind === "haze" || sceneKind === "hazard") danger = Math.max(danger, 0.5);
+  // Relationship scenes are crisis-kind for the simulation, but only betrayal is tense.
+  if (mood === "betrayal") danger = Math.max(danger, 0.3);
+  else if (!mood && (sceneKind === "crisis" || sceneKind === "haze" || sceneKind === "hazard")) danger = Math.max(danger, 0.5);
+  if (scenario === "witch") danger = Math.max(danger, 0.5);
   if (scene === "combat" && s?.pending.kind === "combat") {
     const c = s.pending.combat;
     const hurt = s.party.filter((m) => m.alive).reduce((t, m) => t + (1 - m.health / Math.max(1, m.maxHealth)), 0);
@@ -150,7 +207,7 @@ export function musicCues(view: MusicView): { states: MusicStates; params: Music
       scenario,
       focus,
       ending,
-      mourning: view.mourning && scene !== "ending" && scene !== "combat" ? "yes" : "no",
+      mourning: mourning ? "yes" : "no",
     },
     params: { haze, danger: clamp01(danger), intensity, night: clamp01(view.night) },
   };

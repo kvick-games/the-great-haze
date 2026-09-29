@@ -46,6 +46,8 @@ export class GameMusic {
   readonly host: DreamMusicHost;
   private acc = POLL_SECONDS;
   private mournLeft = 0;
+  private mournFor: string | null = null;
+  private scenario = "none";
   private alive: Set<string> | null = null;
   private zone: HazeZone | null = null;
   private scene: MusicScene | null = null;
@@ -125,12 +127,14 @@ export class GameMusic {
         if (dead.length) {
           this.host.stinger("death");
           this.mournLeft = MOURN_SECONDS;
+          this.mournFor = dead[0];
         }
       }
       this.alive = new Set(s.party.filter((m) => m.alive).map((m) => m.id));
     } else {
       this.alive = null;
       this.mournLeft = 0;
+      this.mournFor = null;
     }
 
     const zone = hud?.zone ?? null;
@@ -147,9 +151,13 @@ export class GameMusic {
       moving: Math.min(1, Math.abs(world.train.speed) / 4),
       busy: src.busy,
       mourning: this.mournLeft > 0,
+      mournFor: this.mournLeft > 0 ? this.mournFor : null,
       previous: this.previous,
     };
     const { states, params } = musicCues(view);
+    // The witch announces herself once each time she appears.
+    if (states.scenario === "witch" && this.scenario !== "witch") this.host.stinger("witch");
+    this.scenario = states.scenario;
     if (states.scene !== this.scene) {
       this.previous = this.scene;
       this.scene = states.scene;

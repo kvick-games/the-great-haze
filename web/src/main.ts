@@ -46,6 +46,8 @@ function boot(): void {
   }
   const audio = new Audio();
   const music = new GameMusic();
+  // The music ducks while a line is spoken (the conversation state is its fallback).
+  voice.setDucker((on) => music.duck(on));
   /** Sound and music start together on a gesture; the master sound switch mutes both. */
   const wakeSound = () => {
     audio.wake();

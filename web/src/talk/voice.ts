@@ -18,6 +18,9 @@ export interface Voice {
 /** Maps a line to a URL of a pre-generated audio clip, or null when there is none. */
 export type ClipResolver = (line: SpokenLine) => string | null;
 
+/** Told true when a line starts sounding and false when it ends (the music ducks under it). */
+export type Ducker = (on: boolean) => void;
+
 const KEY = "the-great-haze.voice";
 
 function readEnabled(): boolean {
@@ -57,6 +60,10 @@ export class SpeechVoice implements Voice {
   private voices: SpeechSynthesisVoice[] = [];
   private clip: HTMLAudioElement | null = null;
   private resolver: ClipResolver | null = null;
+  private ducker: Ducker | null = null;
+  /** Bumped per line, so a cancelled line's late end event can't lift the duck of the next. */
+  private line = 0;
+  private ducked = false;
 
   constructor() {
     if (suppressed()) return;
@@ -78,6 +85,29 @@ export class SpeechVoice implements Voice {
     this.resolver = fn;
   }
 
+  /** Extension point: hear when a line is sounding (the soundtrack ducks under speech). */
+  setDucker(fn: Ducker | null): void {
+    this.ducker = fn;
+  }
+
+  private duck(on: boolean): void {
+    if (on === this.ducked) return;
+    this.ducked = on;
+    try {
+      this.ducker?.(on);
+    } catch {
+      /* the music is a nicety too */
+    }
+  }
+
+  /** An end callback that only lifts the duck if its line is still the current one. */
+  private ender(): () => void {
+    const id = this.line;
+    return () => {
+      if (id === this.line) this.duck(false);
+    };
+  }
+
   speak(line: SpokenLine): void {
     this.stop();
     if (!this.enabled || suppressed()) return;
@@ -86,9 +116,14 @@ export class SpeechVoice implements Voice {
       try {
         const a = new window.Audio(url);
         this.clip = a;
-        void a.play().catch(() => undefined);
+        const end = this.ender();
+        a.addEventListener("ended", end);
+        a.addEventListener("error", end);
+        this.duck(true);
+        void a.play().catch(end);
       } catch {
         /* a missing clip is just silence */
+        this.duck(false);
       }
       return;
     }
@@ -105,13 +140,20 @@ export class SpeechVoice implements Voice {
       const m = MOOD[line.mood] ?? MOOD.calm;
       u.rate = Math.max(0.5, Math.min(2, base.rate * m.rate));
       u.pitch = Math.max(0, Math.min(2, base.pitch * m.pitch));
+      const end = this.ender();
+      u.onend = end;
+      u.onerror = end;
+      this.duck(true);
       synth.speak(u);
     } catch {
       /* speech is a nicety; never break the scene */
+      this.duck(false);
     }
   }
 
   stop(): void {
+    this.line++;
+    this.duck(false);
     if (this.clip) {
       this.clip.pause();
       this.clip = null;
