@@ -25,6 +25,8 @@ export interface UIHandlers {
   focusMember(id: string | null): void;
   hoverMember(id: string | null): void;
   toggleSound(): boolean;
+  toggleVoice(): boolean;
+  voiceOn(): boolean;
   toggleQuality(): string;
 }
 
@@ -70,6 +72,7 @@ export class UI {
   private busy = false;
   private confirmAbandon = false;
   private soundOn = false;
+  private voiceBtn: HTMLButtonElement | null = null;
   kickerOverride: string | null = null;
   private skipBtn: HTMLButtonElement;
 
@@ -104,6 +107,11 @@ export class UI {
       if (this.busy && (ev.key === " " || ev.key === "Enter" || ev.key === "Escape")) {
         ev.preventDefault();
         handlers.skip();
+        return;
+      }
+      if (ev.key === "t" || ev.key === "T") {
+        this.toast(handlers.toggleVoice() ? "Voices on" : "Voices off");
+        this.renderVoiceBtn();
         return;
       }
       if (!this.busy && /^[1-9]$/.test(ev.key) && this.hot[Number(ev.key)]) {
@@ -371,6 +379,14 @@ export class UI {
       this.soundOn = this.handlers.toggleSound();
       snd.replaceChildren(svg(this.soundOn ? ICONS.sound : ICONS.mute));
     });
+    const vb = h("button", "tool text", "Voice");
+    vb.type = "button";
+    this.voiceBtn = vb;
+    vb.addEventListener("click", () => {
+      this.handlers.toggleVoice();
+      this.renderVoiceBtn();
+    });
+    this.renderVoiceBtn();
     const q = h("button", "tool");
     q.type = "button";
     q.title = "Graphics quality";
@@ -396,8 +412,16 @@ export class UI {
     mp.title = "The map of the road";
     mp.setAttribute("aria-expanded", String(this.mapOpen));
     mp.addEventListener("click", () => (this.mapOpen ? this.closeMap() : this.showMap()));
-    add(tools, mp, snd, q, ab);
+    add(tools, mp, snd, vb, q, ab);
     add(this.hud, where, gauge, res, tools);
+  }
+
+  private renderVoiceBtn(): void {
+    const on = this.handlers.voiceOn();
+    if (!this.voiceBtn) return;
+    this.voiceBtn.style.opacity = on ? "" : "0.5";
+    this.voiceBtn.title = `Spoken dialogue: ${on ? "on" : "off"} (T)`;
+    this.voiceBtn.setAttribute("aria-pressed", String(on));
   }
 
   setSound(on: boolean): void {

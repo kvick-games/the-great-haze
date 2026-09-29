@@ -5,6 +5,7 @@ import { World } from "./world/world.ts";
 import { UI } from "./ui/ui.ts";
 import { Director } from "./director.ts";
 import { Audio } from "./audio.ts";
+import { voice } from "./talk/voice.ts";
 import type { Figure } from "./world/actors.ts";
 import { ROSTER } from "../../src/game/content/roster.ts";
 
@@ -91,6 +92,8 @@ function boot(): void {
     focusMember: (id) => director.focusMember(id),
     hoverMember: (id) => director.highlight(id),
     toggleSound: () => audio.toggle(),
+    toggleVoice: () => voice.toggle(),
+    voiceOn: () => voice.enabled,
     toggleQuality: () => {
       const q = world.quality > 0.5 ? 0 : 1;
       world.setQuality(q);

@@ -1,9 +1,15 @@
 // Cinematic camera: a named shot supplies a desired position and look target
-// every frame; the rig eases toward it. The player can drag to look around a
-// little, and the offset drifts home when they let go.
+// every frame; the rig eases toward it. The player can drag to orbit freely around
+// the target, and the offset drifts home when they let go.
 
 import * as THREE from "three";
 import { damp } from "./noise.ts";
+import { terrainHeight } from "./regions.ts";
+
+/** Keep the view short of straight up/down so lookAt never flips. */
+const MAX_PITCH = Math.PI / 2 - 0.12;
+/** The camera never dips below the ground, with this much clearance. */
+const GROUND_CLEARANCE = 0.6;
 
 export type ShotFn = (time: number) => { pos: THREE.Vector3; target: THREE.Vector3; fov?: number };
 
@@ -51,8 +57,11 @@ export class CameraRig {
   }
 
   drag(dx: number, dy: number): void {
-    this.userYaw = Math.max(-1.2, Math.min(1.2, this.userYaw - dx * 0.005));
-    this.userPitch = Math.max(-0.25, Math.min(0.5, this.userPitch + dy * 0.003));
+    // Free orbit: yaw wraps all the way round; only pitch is kept off the poles.
+    let yaw = this.userYaw - dx * 0.005;
+    yaw = ((((yaw + Math.PI) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)) - Math.PI;
+    this.userYaw = yaw;
+    this.userPitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, this.userPitch + dy * 0.003));
     this.idle = 0;
   }
 
@@ -92,10 +101,11 @@ export class CameraRig {
     const off = this.pos.clone().sub(this.target);
     off.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.userYaw);
     const flat = Math.hypot(off.x, off.z);
-    const pitch = Math.atan2(off.y, flat) + this.userPitch;
+    const pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, Math.atan2(off.y, flat) + this.userPitch));
     const len = off.length() * this.userZoom;
     const dir = new THREE.Vector3(off.x, 0, off.z).normalize();
     const cp = this.target.clone().add(dir.multiplyScalar(Math.cos(pitch) * len)).add(new THREE.Vector3(0, Math.sin(pitch) * len, 0));
+    cp.y = Math.max(cp.y, terrainHeight(cp.x, cp.z) + GROUND_CLEARANCE);
     this.shake = Math.max(0, this.shake - dt * 2.2);
     const sh = this.shake * this.shake * 0.35;
     cp.x += (Math.random() - 0.5) * sh;

@@ -20,6 +20,7 @@ import { roadX, terrainHeight } from "../world/regions.ts";
 import { Cast } from "./cast.ts";
 import type { Spot } from "./cast.ts";
 import { TellCues } from "./tells.ts";
+import { voice } from "./voice.ts";
 
 export interface TalkHost {
   world: World;
@@ -170,10 +171,12 @@ export class Conversation {
     this.speaking = fig;
     h.ui.speech.showLine({ name: line.name, kind: line.kind, mood: line.mood, text: line.text }, i, plan.steps.length, h.fast);
     this.place();
+    voice.speak(line);
     // Under #fast lines go by on their own, unless a tool asked to hold here.
     const auto = h.fast && this.holdAt !== i ? 0.35 : null;
     await this.waitAdvance(auto);
     this.speaking = null;
+    voice.stop();
     h.ui.speech.hideLine();
     fig.setExpression(line.mood, KEEP_GESTURES.has(line.gesture) ? line.gesture : "none", false);
   }
@@ -210,6 +213,7 @@ export class Conversation {
     this.active = false;
     this.speaking = null;
     this.tumbling = false;
+    voice.stop();
     h.ui.speech.hideLine();
     h.ui.speech.hideRoll();
     this.roller?.setRing("none");
@@ -233,6 +237,7 @@ export class Conversation {
   skipAll(): void {
     if (!this.active) return;
     this.skipping = true;
+    voice.stop();
     this.release_();
   }
 
