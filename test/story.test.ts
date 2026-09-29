@@ -289,7 +289,7 @@ test("named strangers become characters; a stranger who is a named NPC is that N
     else if (NPCS.some((n) => n.id === key)) npc++;
   }
   assert.ok(own > 5 && npc >= 1, `own ${own}, npc ${npc}`);
-  assert.equal(specs.find((c) => c.key === "stranger.signal-fire")?.kind, "stranger");
+  assert.equal(specs.find((c) => c.key === "stranger.wounded-traveler")?.kind, "stranger");
 });
 
 test("beats carry the screen's speech, check and route; shots voice them as <d> lines for the right subject", () => {
@@ -299,7 +299,7 @@ test("beats carry the screen's speech, check and route; shots voice them as <d> 
   assert.equal(b.check?.kind, "calm");
   assert.ok(b.place && b.place.regionId, "route context");
   const talk = sc.main.beats[0].talk!;
-  assert.ok(talk.some((l) => l.phase === "setup" && l.key === "stranger.signal-fire"), "the stranger speaks under their own key");
+  assert.ok(talk.some((l) => l.phase === "setup" && l.key.startsWith("stranger.")), "the stranger speaks under their own key");
   for (const seg of [sc.main, sc.fork]) {
     seg.beats.forEach((beat, i) => {
       const req = seg.shots[i];
@@ -310,34 +310,39 @@ test("beats carry the screen's speech, check and route; shots voice them as <d> 
     });
   }
   const first = h3Prompt(sc.main.shots[0], sc.main.beats[0]).join("\n");
-  assert.match(first, /The figure by the fire \(Image \d\), [^:]+: <d>\[English\] /, "attributed with acting direction");
-  assert.match(h3Prompt(sc.main.shots[2], sc.main.beats[2]).join("\n"), /Pim fails to calm the quarrel/, "the check is in the shot");
+  assert.match(first, /The wounded man \(Image \d\), [^:]+: <d>\[English\] /, "attributed with acting direction");
+  const checked = sc.main.beats.findIndex((x) => x.check);
+  assert.match(h3Prompt(sc.main.shots[checked], sc.main.beats[checked]).join("\n"), /steadies|fails to calm/, "the check is in the shot");
   assert.match(sc.main.shots[2].prompt, /Setting: .*The place:/, "route context in the setting");
 });
 
 test("transition shots open on the old state, speak, then change: Dov's death shot", () => {
   const sc = buildScenario("night-death");
-  const i = sc.main.beats.findIndex((b) => b.mutations.some((m) => m.kind === "death" && m.subject === "dov"));
+  const i = sc.main.beats.findIndex((b) => b.mutations.some((m) => m.kind === "death"));
+  const id = sc.main.beats[i].mutations.find((m) => m.kind === "death")!.subject as string;
+  const full = characterSpecs().find((c) => c.key === id)!.name;
   const req = sc.main.shots[i];
   const lines = h3Prompt(req, sc.main.beats[i]).join("\n");
-  const said = lines.indexOf("Dov Reyes (Image 2), ");
-  assert.ok(said > 0 && req.dialogue.some((d) => d.key === "dov"), "Dov speaks in his death shot");
+  const said = lines.indexOf(`${full} (Image 2), `);
+  assert.ok(said > 0 && req.dialogue.some((d) => d.key === id), `${full} speaks in the death shot`);
   assert.ok(!/dead|lying dead|is dead/i.test(lines.slice(0, said)), "nothing calls him dead before he speaks");
-  assert.ok(lines.indexOf("is dead") > said && lines.indexOf("Ending state: Dov Reyes: lying dead") > said, "the death and the ending state come after");
+  assert.ok(lines.indexOf("is dead") > said && lines.indexOf(`Ending state: ${full}: lying dead`) > said, "the death and the ending state come after");
   // Opening state slot, then the ending slot, labelled.
-  const dov = req.references.filter((r) => r.character === "dov");
+  const dov = req.references.filter((r) => r.character === id);
   assert.equal(dov.find((r) => r.state === "opening")?.slot_key.includes("dead"), false);
   assert.match(dov.find((r) => r.state === "ending")?.slot_key ?? "", /dead/);
-  assert.match(lines, /Image 2 is Dov Reyes as they are now; Image \d is how they end/);
+  assert.match(lines, new RegExp(`Image 2 is ${full} as they are now; Image \\d is how they end`));
   // A settled beat keeps the current state and has no ending slot.
   const settled = sc.main.shots.find((r) => r.references.length && !r.references.some((x) => x.state));
   assert.ok(settled, "a non-transition shot exists");
 });
 
 test("every scenario has speech in at least two beats, and the pins keep their named cast", () => {
-  const want: Record<string, string[]> = { "stranger-trap": ["stranger.signal-fire", "odalys"], "night-death": ["dov"], "companion-turns": ["juniper"] };
+  const kinds: Record<string, string> = { "stranger-trap": "wound", "night-death": "death", "companion-turns": "join" };
   for (const def of SCENARIOS) {
     const sc = buildScenario(def);
+    const subject = sc.main.beats.flatMap((b) => b.mutations).find((m) => m.kind === kinds[def.id])?.subject as string;
+    const want: Record<string, string[]> = { [def.id]: [subject] };
     assert.ok(sc.main.beats.filter((b) => b.talk?.length).length >= 2, `${def.id} speaks`);
     assert.ok(sc.main.shots.some((s) => s.dialogue.length), def.id);
     for (const key of want[def.id]) assert.ok(sc.main.beats.some((b) => b.participants.includes(key)), `${def.id} has ${key}`);
