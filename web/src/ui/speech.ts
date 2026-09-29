@@ -7,6 +7,10 @@
 import type { CheckResult, Mood, SpeakerKind } from "../../../src/game/types.ts";
 import { add, h } from "./dom.ts";
 
+// A mouse gets told about the keyboard too; a touch screen just taps.
+const FINE = typeof matchMedia === "function" && matchMedia("(pointer: fine)").matches;
+const GO_ON = FINE ? "click or Space to go on" : "tap to go on";
+
 export interface BubbleLine {
   name: string;
   kind: SpeakerKind;
@@ -73,7 +77,7 @@ export class Speech {
     this.nameEl = h("div", "b-name");
     this.textEl = h("div", "b-text");
     this.dots = h("div", "b-dots");
-    this.hint = h("div", "b-hint", "tap to go on");
+    this.hint = h("div", "b-hint", GO_ON);
     add(this.bubble, this.nameEl, this.textEl, add(h("div", "b-foot"), this.dots, this.hint));
     this.rollEl = h("div", "rollcard");
     this.rollHead = h("div", "r-head");
@@ -97,7 +101,7 @@ export class Speech {
     this.textEl.textContent = instant ? line.text : "";
     this.dots.replaceChildren();
     for (let i = 0; i < total; i++) this.dots.appendChild(h("i", i === index ? "on" : i < index ? "done" : ""));
-    this.hint.textContent = index === total - 1 ? "tap to choose" : "tap to go on";
+    this.hint.textContent = index === total - 1 ? (FINE ? "click or Space to choose" : "tap to choose") : GO_ON;
     this.hint.style.opacity = instant ? "1" : "0";
     // Reserve the finished size so the box does not grow while the words appear.
     this.textEl.style.minHeight = "";
