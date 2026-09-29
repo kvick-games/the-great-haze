@@ -11,7 +11,7 @@ import { ROSTER } from "../../src/game/content/roster.ts";
 import { sceneById } from "../../src/game/content/scenes/index.ts";
 import { ENEMIES } from "../../src/game/content/enemies.ts";
 import { PACES, TUNING } from "../../src/game/tuning.ts";
-import { regionAt } from "../../src/game/world.ts";
+import { regionOf, regionSpans } from "../../src/game/map.ts";
 import type { World } from "./world/world.ts";
 import type { ShotFn } from "./world/camera.ts";
 import { Figure } from "./world/actors.ts";
@@ -23,6 +23,7 @@ import { disposeTree } from "./world/dispose.ts";
 import { Stage, buildArrival, buildStage, buildTown } from "./scenes/vignettes.ts";
 import { cross } from "./scenes/pieces.ts";
 import { CombatStage } from "./scenes/combat.ts";
+import { ForkStage } from "./scenes/fork.ts";
 import { Conversation } from "./talk/conversation.ts";
 import type { Plan } from "./talk/conversation.ts";
 import type { UI } from "./ui/ui.ts";
@@ -349,6 +350,7 @@ export class Director {
     tr.torchesLit = (dawn ? dawn.res.torches : s.res.torches) > 0;
     this.world.gapMiles = s.gap;
     this.world.target.reach = smoothstep(600, 830, s.miles);
+    this.world.setRegionSpans(regionSpans(s));
   }
 
   /** Bring party figures in line with the sim, animating arrivals, deaths, and departures. */
@@ -542,6 +544,7 @@ export class Director {
     w.snap();
     if (p.kind === "scene") this.stageScene(p.scene, true);
     else if (p.kind === "combat") this.startCombatStage(p.combat.enemy);
+    else if (p.kind === "fork") this.stageFork(this.screen!, true);
     else if (p.kind === "arrival" || (p.kind === "store" && p.storeId !== "cinder-ford")) {
       const id = p.kind === "arrival" ? p.id : p.storeId === "wayhouse" ? "meridian-wayhouse" : "last-lamp";
       this.stageArrival(id);
@@ -760,6 +763,8 @@ export class Director {
         return this.transition(next, before);
       case "result":
         return this.transition(next, before);
+      case "fork":
+        return this.chooseRoad(id, next, before);
       default:
         void w;
     }
@@ -872,7 +877,7 @@ export class Director {
     }
     w.target.night = 0.38;
     const pace = PACES[this.s.pace];
-    this.ui.say(`Day ${this.s.day} · ${regionAt(this.s.miles).name}`, `${pace.name} pace`);
+    this.ui.say(`Day ${this.s.day} · ${regionOf(this.s).name}`, `${pace.name} pace`);
     if (next.kind === "scene" && this.roadPhase()) return this.rollToScene(before);
     await this.rollDay(next, before);
     if (next.kind === "ending") {
@@ -886,7 +891,7 @@ export class Director {
 
   private expectedDayUnits(): number {
     const pace = PACES[this.s.pace];
-    return pace.hours * TUNING.baseMph * regionAt(this.s.miles).terrain * U;
+    return pace.hours * TUNING.baseMph * regionOf(this.s).terrain * U;
   }
 
   private async rollToScene(before: Snap): Promise<void> {
@@ -1134,7 +1139,7 @@ export class Director {
         return;
       case "fork":
         this.retireStage();
-        this.shot(this.shotCamp(), 1.3);
+        this.stageFork(next);
         this.audio.sfx("bell");
         return;
       case "plan":
@@ -1161,6 +1166,50 @@ export class Director {
       default:
         return;
     }
+  }
+
+  /** The junction in 3D: a ribbon of road and a sign board per route, seen from in front of the oxen. */
+  private stageFork(s: Screen, snapCam = false): void {
+    if (!s.fork) {
+      this.shot(this.shotCamp(), 1.3);
+      return;
+    }
+    const st = new ForkStage(s.fork);
+    this.stage = st;
+    this.placeStage(st, this.world.train.d + 30);
+    st.conform();
+    this.shot(this.shotFork(st), 1.4, snapCam);
+  }
+
+  private shotFork(st: ForkStage): ShotFn {
+    return (t) => {
+      const sway = Math.sin(t * 0.09);
+      const pos = st.group.localToWorld(new THREE.Vector3(1.5 + sway * 1.2, 9.5, 33));
+      const tgt = st.group.localToWorld(new THREE.Vector3(0.6 + sway * 0.6, 2.2, -14));
+      return { pos: lift(pos, 2), target: tgt };
+    };
+  }
+
+  /** Hovering a route on the card lights that road in the world. */
+  hoverRoute(id: string | null): void {
+    if (this.stage instanceof ForkStage) this.stage.focusRoute(id);
+  }
+
+  /** The train commits: the chosen road lights, the camera turns down it, then the day carries on. */
+  private async chooseRoad(id: string, next: Screen, before: Snap): Promise<void> {
+    const st = this.stage;
+    if (st instanceof ForkStage) {
+      st.focusRoute(id);
+      const dir = st.routeDir(id);
+      if (dir) {
+        const from = st.group.localToWorld(new THREE.Vector3(3, 3.4, 12));
+        const at = st.group.localToWorld(new THREE.Vector3(0, 1.2, 0));
+        this.shot(() => ({ pos: lift(from.clone(), 2), target: at.clone().addScaledVector(dir, 30 + 0).setY(1.6) }), 1.3);
+      }
+      this.audio.sfx("bell");
+      await this.wait(1.5);
+    }
+    return this.transition(next, before);
   }
 
   private stageArrival(id: string): void {
@@ -1417,7 +1466,7 @@ export class Director {
     w.target.night = 0.62;
     w.train.clearStaging();
     this.syncWorldState();
-    this.ui.say(`Day ${this.s.day}`, regionAt(this.s.miles).name);
+    this.ui.say(`Day ${this.s.day}`, regionOf(this.s).name);
     this.shot(this.shotCamp(19, 7), 0.9);
     await this.wait(1.4);
   }

@@ -21,6 +21,7 @@ export interface UIHandlers {
   skip(): void;
   /** Leave the dialogue without playing the rest of it. */
   skipTalk(): void;
+  hoverRoute(id: string | null): void;
   focusMember(id: string | null): void;
   hoverMember(id: string | null): void;
   toggleSound(): boolean;
@@ -252,6 +253,12 @@ export class UI {
     add(t, h("p", "foot", "Drag to look around. Keys 1–9 choose; Space skips a cinematic. Runs save in this browser."));
     this.title = t;
     this.root.appendChild(t);
+  }
+
+  /** Light a road on the card's map and in the 3D fork. */
+  private lightRoute(m: { highlight(id: string | null): void }, id: string | null): void {
+    m.highlight(id);
+    this.handlers.hoverRoute(id ? `route:${id}` : null);
   }
 
   /** Open the parchment map over the view. */
@@ -652,10 +659,10 @@ export class UI {
           opts.querySelectorAll<HTMLButtonElement>("button.opt").forEach((b, i) => {
             const id = s.options[i]?.id ?? "";
             const eid = id.startsWith("route:") ? id.slice(6) : null;
-            b.addEventListener("mouseenter", () => m.highlight(eid));
-            b.addEventListener("focus", () => m.highlight(eid));
-            b.addEventListener("mouseleave", () => m.highlight(null));
-            b.addEventListener("blur", () => m.highlight(null));
+            b.addEventListener("mouseenter", () => this.lightRoute(m, eid));
+            b.addEventListener("focus", () => this.lightRoute(m, eid));
+            b.addEventListener("mouseleave", () => this.lightRoute(m, null));
+            b.addEventListener("blur", () => this.lightRoute(m, null));
           });
           add(c, add(row, m.el, opts));
           if (seen) c.appendChild(seen);

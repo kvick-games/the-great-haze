@@ -1,5 +1,5 @@
 // A fork in the road, with a bought (misleading) map in the coat. Seed 7 makes the drover's sketch a liar.
-// VIEW=map opens the full parchment overlay instead of the card.
+// VIEW=map opens the full parchment overlay instead of the card; VIEW=bare hides the card.
 (async () => {
   const d = window.__haze.director;
   d.ui.hideTitle();
@@ -23,4 +23,14 @@
   g.s.pending = { kind: "fork", node: "crows-parting" };
   d.resume(g.serialize());
   if (window.__view === "map") setTimeout(() => d.ui.showMap(), 600);
+  // VIEW=bare hides the card so the 3D junction can be judged on its own.
+  if (window.__view === "bare") setTimeout(() => document.querySelectorAll(".card, .party").forEach((e) => (e.style.display = "none")), 300);
+  // VIEW=top looks straight down on the junction.
+  if (window.__view === "top")
+    setTimeout(() => {
+      document.querySelectorAll(".card, .party").forEach((e) => (e.style.display = "none"));
+      const st = d.stage;
+      const T = window.__haze.world.rig.constructor && null;
+      d.shot(() => ({ pos: st.group.localToWorld(new st.group.position.constructor(0, 70, 10)), target: st.group.localToWorld(new st.group.position.constructor(0, 0, -20)) }), 9, true);
+    }, 300);
 })();

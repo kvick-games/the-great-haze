@@ -87,6 +87,7 @@ function boot(): void {
     },
     skip: () => director.skip(),
     skipTalk: () => director.skipTalk(),
+    hoverRoute: (id) => director.hoverRoute(id),
     focusMember: (id) => director.focusMember(id),
     hoverMember: (id) => director.highlight(id),
     toggleSound: () => audio.toggle(),
