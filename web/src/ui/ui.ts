@@ -11,8 +11,11 @@ import { ICONS, add, h, svg } from "./dom.ts";
 import { renderMap } from "./mapview.ts";
 import { Speech, checkLabel } from "./speech.ts";
 import type { Insets } from "./speech.ts";
+import { CrewSheet, portraitEl } from "./crew-sheet.ts";
+import type { CrewDeps } from "./crew-sheet.ts";
+import { fallenViews } from "./crew-info.ts";
 
-export interface UIHandlers {
+export interface UIHandlers extends CrewDeps {
   choose(id: string): void;
   trade(item: ResourceId, qty: number): void;
   start(opts: { leaderName: string; background: string; difficulty: "normal" | "dire" }): void;
@@ -62,6 +65,7 @@ export class UI {
   private title: HTMLElement | null = null;
   private tooltip: HTMLElement;
   readonly speech: Speech;
+  readonly crew: CrewSheet;
   private talking = false;
   private talkMode: "open" | "folded" = "open";
   private mapOverlay: HTMLElement | null = null;
@@ -93,8 +97,17 @@ export class UI {
     this.toastEl = add(root, h("div", "toast")).lastChild as HTMLElement;
     this.tooltip = add(root, h("div", "tip")).lastChild as HTMLElement;
     this.speech = new Speech(root);
+    this.crew = new CrewSheet(root, handlers);
     document.addEventListener("keydown", (ev) => {
       if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+      if (this.crew.isOpen) {
+        // The crew sheet is modal: Escape closes it, and the option hotkeys wait.
+        if (ev.key === "Escape") {
+          ev.preventDefault();
+          this.crew.close();
+        }
+        return;
+      }
       const t = (ev.target as HTMLElement | null)?.tagName;
       if (t === "INPUT" || t === "TEXTAREA") return;
       if (this.talking && (ev.key === " " || ev.key === "Enter" || ev.key === "Escape")) {
@@ -125,6 +138,7 @@ export class UI {
 
   setBusy(on: boolean): void {
     this.busy = on;
+    if (on) this.crew.close();
     this.root.classList.toggle("is-busy", on);
   }
 
@@ -428,36 +442,64 @@ export class UI {
     this.soundOn = on;
   }
 
+  /** Open one person's sheet (from a party card, or a click on their figure). */
+  openCrew(id: string, opener?: HTMLElement | null): void {
+    if (this.busy || this.talking) return;
+    this.crew.open(id, opener);
+  }
+
   private renderParty(members: MemberView[], kind: Screen["kind"]): void {
     this.party.replaceChildren();
-    if (kind === "setup" || kind === "ending") return;
+    if (kind === "setup" || kind === "ending") {
+      this.crew.close();
+      return;
+    }
+    const state = this.handlers.state();
+    if (state) this.crew.chronicle.observe(state);
     add(this.party, h("div", "party-head", `The train · ${members.length}`));
-    for (const m of members) {
-      const tile = h("button", "member");
+    const fallen = state ? fallenViews(state) : [];
+    for (const m of [...members, ...fallen]) {
+      const alive = !fallen.includes(m);
+      const tile = h("button", `member${alive ? "" : " fallen"}`);
       tile.type = "button";
-      if (m.conditions.some((c) => c === "dying" || c === "turning" || c === "breaking")) tile.classList.add("bad");
+      tile.dataset.id = m.id;
+      tile.setAttribute("aria-label", `${m.name}, ${m.role}${alive ? "" : ", gone"}. Open details.`);
+      tile.setAttribute("aria-haspopup", "dialog");
+      if (alive && m.conditions.some((c) => c === "dying" || c === "turning" || c === "breaking")) tile.classList.add("bad");
       const name = h("div", "m-name", m.name);
-      const meta = h("div", "m-meta", `${m.isLeader ? "wagon-master · " : ""}${m.role} · ${m.traits.join(", ")}`);
-      const bars = h("div", "m-bars");
-      const bar = (label: string, v: number, cls: string) => {
-        const b = h("div", `m-bar ${cls}`);
-        const i = h("i");
-        i.style.width = `${Math.max(0, Math.min(100, v))}%`;
-        add(b, h("span", "", label), add(h("div", "tr"), i), h("span", "n", v));
-        return b;
-      };
-      add(bars, bar("HP", m.health, m.health > 60 ? "good" : m.health > 30 ? "warn" : "bad"), bar("Nerve", m.nerve, m.nerve > 55 ? "calm" : m.nerve > 30 ? "warn" : "bad"));
-      add(tile, name, meta, bars);
-      if (m.conditions.length) {
+      const fate = state?.party.find((p) => p.id === m.id)?.fate ?? "lost";
+      const meta = h("div", "m-meta", alive ? `${m.isLeader ? "wagon-master · " : ""}${m.role} · ${m.traits.join(", ")}` : `${m.role} · ${fate}`);
+      const info = h("div", "m-info");
+      add(info, name, meta);
+      if (alive) {
+        const bars = h("div", "m-bars");
+        const bar = (label: string, v: number, cls: string) => {
+          const b = h("div", `m-bar ${cls}`);
+          const i = h("i");
+          i.style.width = `${Math.max(0, Math.min(100, v))}%`;
+          add(b, h("span", "", label), add(h("div", "tr"), i), h("span", "n", v));
+          return b;
+        };
+        add(bars, bar("HP", m.health, m.health > 60 ? "good" : m.health > 30 ? "warn" : "bad"), bar("Nerve", m.nerve, m.nerve > 55 ? "calm" : m.nerve > 30 ? "warn" : "bad"));
+        info.appendChild(bars);
+      }
+      add(tile, portraitEl(this.handlers, m, alive, "sm"), info);
+      if (alive && m.conditions.length) {
         const chips = h("div", "m-cond");
         for (const c of m.conditions) chips.appendChild(h("span", /dying|breaking/.test(c) ? "bad" : /fog|turn/.test(c) ? "haze" : "warn", c));
         tile.appendChild(chips);
       }
-      tile.addEventListener("click", () => this.handlers.focusMember(m.id));
-      tile.addEventListener("mouseenter", () => this.handlers.hoverMember(m.id));
-      tile.addEventListener("mouseleave", () => this.handlers.hoverMember(null));
+      tile.addEventListener("click", () => {
+        if (alive) this.handlers.focusMember(m.id);
+        this.openCrew(m.id, tile);
+      });
+      if (alive) {
+        tile.addEventListener("mouseenter", () => this.handlers.hoverMember(m.id));
+        tile.addEventListener("mouseleave", () => this.handlers.hoverMember(null));
+      }
       this.party.appendChild(tile);
     }
+    this.crew.refresh();
   }
 
   // ---------------------------------------------------------------- cards

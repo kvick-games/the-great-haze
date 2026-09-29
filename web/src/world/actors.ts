@@ -435,6 +435,13 @@ export class Figure {
     this.wraps.chest.visible = !!c.dying;
   }
 
+  /** For portraits: keep pallor, bandages and eyes, but hold the head up so the face shows. */
+  straighten(): void {
+    this.hunch = Math.min(this.hunch, 0.1);
+    this.stagger = 0;
+    this.limp = 0;
+  }
+
   setFade(v: number): void {
     this.fade = v;
     const t = v < 0.999;
