@@ -162,7 +162,7 @@ export class Conversation {
     const listener = this.listenerFor(plan, i);
     this.arrange(fig, listener);
     // The first cut eases in from wherever the camera was; later cuts are hard.
-    h.shot(this.shotFor(fig, listener), i === 0 ? 3 : 8, i > 0 || h.fast);
+    h.shot(this.clearShot(fig, listener), i === 0 ? 3 : 8, i > 0 || h.fast);
     if (line.mood === "angry" || line.gesture === "draw-weapon") h.world.rig.kick(0.14);
     if (line.gesture === "draw-weapon") h.audio.sfx("sting");
     for (const f of this.people) if (f !== fig) f.setExpression(f.mood, KEEP_GESTURES.has(f.gesture) ? f.gesture : "none", false);
@@ -188,7 +188,7 @@ export class Conversation {
     if (roller) {
       roller.setRing("focus");
       this.arrange(roller, other);
-      h.shot(this.shotFor(roller, other), 3, h.fast);
+      h.shot(this.clearShot(roller, other), 3, h.fast);
     }
     h.ui.speech.startRoll(c);
     this.tumbling = true;
@@ -414,10 +414,54 @@ export class Conversation {
     this.sideSign = p.x >= roadX(p.z) ? 1 : -1;
   }
 
-  /** Shot / reverse-shot: over the listener's shoulder when close, otherwise a close 3/4 on the speaker. */
-  private shotFor(speaker: Figure, listener: Figure | null): ShotFn {
+  private ray = new THREE.Raycaster();
+
+  /** True when something solid (oxen, wagons, other people) stands between the camera and the speaker's head. */
+  private hidden(from: THREE.Vector3, speaker: Figure, listener: Figure | null): boolean {
+    const to = this.headTop(speaker, -0.12);
+    const dir = to.clone().sub(from);
+    const dist = dir.length();
+    if (dist < 0.1) return false;
+    this.ray.set(from, dir.normalize());
+    this.ray.far = dist - 0.15;
+    this.ray.camera = this.host.world.rig.camera;
+    const roots: THREE.Object3D[] = [this.host.world.train.group];
+    const st = this.host.stage();
+    if (st) roots.push(st.group);
+    const own = (o: THREE.Object3D | null) => {
+      for (let n = o; n; n = n.parent) if (n === speaker.root || (listener && n === listener.root)) return true;
+      return false;
+    };
+    for (const hit of this.ray.intersectObjects(roots, true)) {
+      const m = hit.object as THREE.Mesh;
+      if (!m.isMesh || !m.visible || own(m)) continue;
+      const mat = Array.isArray(m.material) ? m.material[0] : m.material;
+      if (!mat || mat.transparent || mat.depthWrite === false) continue;
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * The usual shot, unless the speaker would be hidden behind the oxen or a wagon. Then the camera
+   * swings round the speaker (or climbs) to the nearest angle that shows them.
+   */
+  private clearShot(speaker: Figure, listener: Figure | null): ShotFn {
     const world = this.host.world;
-    return (t) => {
+    const t0 = world.time;
+    const variants: [number, number][] = [[0, 0], [0.5, 0], [-0.5, 0], [0, 1.3], [1.0, 0.4], [-1.0, 0.4], [0.7, 1.4], [-0.7, 1.4], [1.5, 0.6], [-1.5, 0.6]];
+    for (const [yaw, lift] of variants) {
+      const fn = this.shotFor(speaker, listener, yaw * this.sideSign, lift);
+      if (!this.hidden(fn(t0).pos, speaker, listener)) return fn;
+    }
+    // Nothing is clear: a high angle looking down over the obstruction.
+    return this.shotFor(speaker, listener, 0, 2.4);
+  }
+
+  /** Shot / reverse-shot: over the listener's shoulder when close, otherwise a close 3/4 on the speaker. */
+  private shotFor(speaker: Figure, listener: Figure | null, yaw = 0, lift = 0): ShotFn {
+    const world = this.host.world;
+    const base: ShotFn = (t) => {
       const cam = world.rig.camera;
       const tall = cam.aspect < 1;
       const S = this.eye(speaker);
@@ -450,6 +494,15 @@ export class Conversation {
       const target = S.clone();
       target.y -= 0.12;
       return { pos, target, fov: 38 };
+    };
+    if (!yaw && !lift) return base;
+    // A variant swings the camera round the speaker and/or lifts it.
+    return (t) => {
+      const r = base(t);
+      const off = r.pos.clone().sub(r.target).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+      const pos = r.target.clone().add(off);
+      pos.y += lift;
+      return { ...r, pos };
     };
   }
 }
