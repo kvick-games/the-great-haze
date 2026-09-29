@@ -1,0 +1,13 @@
+{
+  "schema": "dreamatron.wiki-page/1",
+  "id": "wiki_92954abf22b04a0e8beae54cd5b88c9b",
+  "revision": 2,
+  "title": "Route map, forks and misleading maps",
+  "summary": "The route graph, forks and maps that lie.",
+  "aliases": [],
+  "parentId": "wiki_ce98325a838349afb37001e76e87e1d4",
+  "bodyHtml": "<p>The road is a graph (<code>src/game/routes.ts</code>): nodes (towns, outposts, landmarks, forks) joined by edges with terrain, true length and true hazards. <code>s.miles</code> stays the total odometer; region comes from the current edge or node.</p><h2>Forks</h2><p>Four forks (Crow's Parting, Black Water, Glass Cross, Spine Foot) offer two or three routes each. Every route sums to about 840 miles, so the choice is about risk, speed, wear and supplies. A fork is a screen with choices <code>route:&lt;edgeId&gt;</code>.</p><h2>Maps that lie</h2><ul><li>The player knows only a rough default map (rounded lengths, no danger) unless they buy one at the start store or an outpost.</li><li>Maps have hidden accuracy: faithful, careless or misleading. Examples in code: survey-old, drover-sketch, ferry-chart, factor-chart, and warning-map style purchases.</li><li>Fair clues: the seller's tells, a too-good price, a party member who notices.</li><li>Where the land differs from the believed map, a reveal scene plays partway along the edge and costs hours or supplies. A warning map makes it cheaper (<code>route:prepared</code>).</li><li>Wrong beliefs are recorded and shown in <code>hud.map</code>. All of it is seeded and round-trips in saves; old saves migrate onto the main road by odometer.</li></ul><p>In the 3D client: a 3D fork with a signpost, route-following terrain regions, and a parchment map screen (<code>web/src/scenes/fork.ts</code>, <code>ui/mapview.ts</code>).</p><p>Files: <code>src/game/routes.ts</code>, <code>map.ts</code>, <code>map-types.ts</code>; tests <code>test/map.test.ts</code>, <code>test/merge.test.ts</code>.</p>",
+  "links": [],
+  "createdAt": "2026-09-29T02:42:16.331Z",
+  "updatedAt": "2026-09-29T02:43:18.521Z"
+}

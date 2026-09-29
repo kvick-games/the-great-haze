@@ -1,0 +1,13 @@
+{
+  "schema": "dreamatron.wiki-page/1",
+  "id": "wiki_8bb6a3fb4b8b404ea6a7c6aacc154148",
+  "revision": 1,
+  "title": "Web client",
+  "summary": "The Three.js client: staging, director, camera, UI and headless tools.",
+  "aliases": [],
+  "parentId": "wiki_f49ddc7790f742468969cc78421db6ff",
+  "bodyHtml": "<p>Page is being written.</p>",
+  "links": [],
+  "createdAt": "2026-09-29T02:42:21.752Z",
+  "updatedAt": "2026-09-29T02:42:22.243Z"
+}

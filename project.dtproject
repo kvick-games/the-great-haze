@@ -5,9 +5,9 @@
   "id": "the-great-haze",
   "name": "The Great Haze",
   "description": "Working title. A horror survival migration game beneath a blood-red sky. Initial project setup only.",
-  "revision": 2,
+  "revision": 58,
   "created_at": "2026-09-28T18:50:52.266Z",
-  "updated_at": "2026-09-28T18:50:52.277Z",
+  "updated_at": "2026-09-29T02:45:24.187Z",
   "storage": {
     "default_import_root": "assets"
   },
@@ -24,6 +24,29 @@
         "module:dreamengine:main"
       ],
       "primary_asset_id": "scene:dreamengine:main"
+    },
+    "dt-design": {
+      "asset_ids": [
+        "wiki_f49ddc7790f742468969cc78421db6ff",
+        "wiki_61c7f1dd80df4edfb9503d16eeec38bb",
+        "wiki_ce98325a838349afb37001e76e87e1d4",
+        "wiki_850ec356785542fe87ac090d99f24e27",
+        "wiki_e1378f9cb47a473db095e47ba38318d6",
+        "wiki_a8800207e6b340adb39d5358a0d26b6a",
+        "wiki_068f0c86c1c54d9699703ce9ca79672c",
+        "wiki_c53c46801df54f12be2e66548623269b",
+        "wiki_9ac46d029d9a4568be94d0854cc6c668",
+        "wiki_92954abf22b04a0e8beae54cd5b88c9b",
+        "wiki_90004177560f4116bcb8e4699ca214ac",
+        "wiki_31b23e0204574fd3aeccd729ed51f838",
+        "wiki_b50df739db504e64bcebceed87c45c1e",
+        "wiki_8bb6a3fb4b8b404ea6a7c6aacc154148",
+        "wiki_0585cce8c1ba43e39cccbd96c7969756",
+        "wiki_149ccab76e294a08917e74c2d3d713ae",
+        "wiki_391410254a5941e7b9bcb31b7f1bf1cc",
+        "wiki_1967cbc301584453a9fdec78c0078281"
+      ],
+      "primary_asset_id": null
     }
   },
   "bindings": {},
@@ -98,6 +121,702 @@
       "relationships": [],
       "created_at": "2026-09-28T18:50:52.274Z",
       "updated_at": "2026-09-28T18:50:52.277Z"
+    },
+    {
+      "id": "wiki_f49ddc7790f742468969cc78421db6ff",
+      "kind": "document.wiki-page",
+      "name": "The Great Haze: Start here",
+      "owner": "dt-design",
+      "role": "source",
+      "media_type": "application/vnd.dreamatron.wiki+json",
+      "tags": [],
+      "storage": {
+        "mode": "managed",
+        "path": "Design/wiki/wiki_f49ddc7790f742468969cc78421db6ff.wiki.json",
+        "path_kind": "file"
+      },
+      "integrity": {
+        "sha256": "358fe44ca6d478a37a6bfcfee115a73ad4736393e79601df0fbc72360d6ee9c6",
+        "size": 3288
+      },
+      "relationships": [
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_391410254a5941e7b9bcb31b7f1bf1cc"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_149ccab76e294a08917e74c2d3d713ae"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_61c7f1dd80df4edfb9503d16eeec38bb"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_ce98325a838349afb37001e76e87e1d4"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_b50df739db504e64bcebceed87c45c1e"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_8bb6a3fb4b8b404ea6a7c6aacc154148"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_0585cce8c1ba43e39cccbd96c7969756"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_1967cbc301584453a9fdec78c0078281"
+          }
+        }
+      ],
+      "created_at": "2026-09-29T02:42:11.077Z",
+      "updated_at": "2026-09-29T02:42:35.553Z"
+    },
+    {
+      "id": "wiki_61c7f1dd80df4edfb9503d16eeec38bb",
+      "kind": "document.wiki-page",
+      "name": "Brief and pillars",
+      "owner": "dt-design",
+      "role": "source",
+      "media_type": "application/vnd.dreamatron.wiki+json",
+      "tags": [],
+      "storage": {
+        "mode": "managed",
+        "path": "Design/wiki/wiki_61c7f1dd80df4edfb9503d16eeec38bb.wiki.json",
+        "path_kind": "file"
+      },
+      "integrity": {
+        "sha256": "f783cd3096ddedf462d6d4f39b714dd7ae3ca97185d5e99797f0eda4f10c017c",
+        "size": 3465
+      },
+      "relationships": [
+        {
+          "rel": "child_of",
+          "target": {
+            "asset_id": "wiki_f49ddc7790f742468969cc78421db6ff"
+          }
+        }
+      ],
+      "created_at": "2026-09-29T02:42:11.535Z",
+      "updated_at": "2026-09-29T02:42:44.267Z"
+    },
+    {
+      "id": "wiki_ce98325a838349afb37001e76e87e1d4",
+      "kind": "document.wiki-page",
+      "name": "Core loop and systems",
+      "owner": "dt-design",
+      "role": "source",
+      "media_type": "application/vnd.dreamatron.wiki+json",
+      "tags": [],
+      "storage": {
+        "mode": "managed",
+        "path": "Design/wiki/wiki_ce98325a838349afb37001e76e87e1d4.wiki.json",
+        "path_kind": "file"
+      },
+      "integrity": {
+        "sha256": "864ce2f8bcad0e1c23b9c426805db75e7c1095fcb9e4cc922c22d8a0156f4756",
+        "size": 3450
+      },
+      "relationships": [
+        {
+          "rel": "child_of",
+          "target": {
+            "asset_id": "wiki_f49ddc7790f742468969cc78421db6ff"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_850ec356785542fe87ac090d99f24e27"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_e1378f9cb47a473db095e47ba38318d6"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_a8800207e6b340adb39d5358a0d26b6a"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_068f0c86c1c54d9699703ce9ca79672c"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_c53c46801df54f12be2e66548623269b"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_9ac46d029d9a4568be94d0854cc6c668"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_92954abf22b04a0e8beae54cd5b88c9b"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_90004177560f4116bcb8e4699ca214ac"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_31b23e0204574fd3aeccd729ed51f838"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_391410254a5941e7b9bcb31b7f1bf1cc"
+          }
+        }
+      ],
+      "created_at": "2026-09-29T02:42:12.157Z",
+      "updated_at": "2026-09-29T02:42:48.674Z"
+    },
+    {
+      "id": "wiki_850ec356785542fe87ac090d99f24e27",
+      "kind": "document.wiki-page",
+      "name": "Travel and the Haze",
+      "owner": "dt-design",
+      "role": "source",
+      "media_type": "application/vnd.dreamatron.wiki+json",
+      "tags": [],
+      "storage": {
+        "mode": "managed",
+        "path": "Design/wiki/wiki_850ec356785542fe87ac090d99f24e27.wiki.json",
+        "path_kind": "file"
+      },
+      "integrity": {
+        "sha256": "c4383ef3e548d42cc334a6879966f1f6b8afed3afd891a3b0e248dd943dd063e",
+        "size": 2596
+      },
+      "relationships": [
+        {
+          "rel": "child_of",
+          "target": {
+            "asset_id": "wiki_ce98325a838349afb37001e76e87e1d4"
+          }
+        }
+      ],
+      "created_at": "2026-09-29T02:42:12.945Z",
+      "updated_at": "2026-09-29T02:42:52.399Z"
+    },
+    {
+      "id": "wiki_e1378f9cb47a473db095e47ba38318d6",
+      "kind": "document.wiki-page",
+      "name": "Resources and the store",
+      "owner": "dt-design",
+      "role": "source",
+      "media_type": "application/vnd.dreamatron.wiki+json",
+      "tags": [],
+      "storage": {
+        "mode": "managed",
+        "path": "Design/wiki/wiki_e1378f9cb47a473db095e47ba38318d6.wiki.json",
+        "path_kind": "file"
+      },
+      "integrity": {
+        "sha256": "1e7455ad841e62f9efc270016d0dbbb0f48a44740a6e1d18b1a30e90e90b6ea2",
+        "size": 1552
+      },
+      "relationships": [
+        {
+          "rel": "child_of",
+          "target": {
+            "asset_id": "wiki_ce98325a838349afb37001e76e87e1d4"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_92954abf22b04a0e8beae54cd5b88c9b"
+          }
+        }
+      ],
+      "created_at": "2026-09-29T02:42:13.531Z",
+      "updated_at": "2026-09-29T02:42:57.558Z"
+    },
+    {
+      "id": "wiki_a8800207e6b340adb39d5358a0d26b6a",
+      "kind": "document.wiki-page",
+      "name": "Party, traits, nerve and health",
+      "owner": "dt-design",
+      "role": "source",
+      "media_type": "application/vnd.dreamatron.wiki+json",
+      "tags": [],
+      "storage": {
+        "mode": "managed",
+        "path": "Design/wiki/wiki_a8800207e6b340adb39d5358a0d26b6a.wiki.json",
+        "path_kind": "file"
+      },
+      "integrity": {
+        "sha256": "ba458e78cdadbbd6aa877ca558a4e4b648a102865c80acd53f76a7ae972174ee",
+        "size": 2167
+      },
+      "relationships": [
+        {
+          "rel": "child_of",
+          "target": {
+            "asset_id": "wiki_ce98325a838349afb37001e76e87e1d4"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_b50df739db504e64bcebceed87c45c1e"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_31b23e0204574fd3aeccd729ed51f838"
+          }
+        }
+      ],
+      "created_at": "2026-09-29T02:42:14.107Z",
+      "updated_at": "2026-09-29T02:43:04.870Z"
+    },
+    {
+      "id": "wiki_068f0c86c1c54d9699703ce9ca79672c",
+      "kind": "document.wiki-page",
+      "name": "Combat",
+      "owner": "dt-design",
+      "role": "source",
+      "media_type": "application/vnd.dreamatron.wiki+json",
+      "tags": [],
+      "storage": {
+        "mode": "managed",
+        "path": "Design/wiki/wiki_068f0c86c1c54d9699703ce9ca79672c.wiki.json",
+        "path_kind": "file"
+      },
+      "integrity": {
+        "sha256": "035963551ff96df0e6458595a009a41f7b50c59e6892c72c6f1803fab33d71c9",
+        "size": 1260
+      },
+      "relationships": [
+        {
+          "rel": "child_of",
+          "target": {
+            "asset_id": "wiki_ce98325a838349afb37001e76e87e1d4"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_b50df739db504e64bcebceed87c45c1e"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_8bb6a3fb4b8b404ea6a7c6aacc154148"
+          }
+        }
+      ],
+      "created_at": "2026-09-29T02:42:14.639Z",
+      "updated_at": "2026-09-29T02:43:13.916Z"
+    },
+    {
+      "id": "wiki_c53c46801df54f12be2e66548623269b",
+      "kind": "document.wiki-page",
+      "name": "Scenes, choices and checks",
+      "owner": "dt-design",
+      "role": "source",
+      "media_type": "application/vnd.dreamatron.wiki+json",
+      "tags": [],
+      "storage": {
+        "mode": "managed",
+        "path": "Design/wiki/wiki_c53c46801df54f12be2e66548623269b.wiki.json",
+        "path_kind": "file"
+      },
+      "integrity": {
+        "sha256": "64dfb6870575c10e3551423a63b3294c6dd5eeaaade9b41eff858ba3f2f4f01b",
+        "size": 2569
+      },
+      "relationships": [
+        {
+          "rel": "child_of",
+          "target": {
+            "asset_id": "wiki_ce98325a838349afb37001e76e87e1d4"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_8bb6a3fb4b8b404ea6a7c6aacc154148"
+          }
+        }
+      ],
+      "created_at": "2026-09-29T02:42:15.084Z",
+      "updated_at": "2026-09-29T02:43:16.269Z"
+    },
+    {
+      "id": "wiki_9ac46d029d9a4568be94d0854cc6c668",
+      "kind": "document.wiki-page",
+      "name": "Dialogue and in-world talk",
+      "owner": "dt-design",
+      "role": "source",
+      "media_type": "application/vnd.dreamatron.wiki+json",
+      "tags": [],
+      "storage": {
+        "mode": "managed",
+        "path": "Design/wiki/wiki_9ac46d029d9a4568be94d0854cc6c668.wiki.json",
+        "path_kind": "file"
+      },
+      "integrity": {
+        "sha256": "856678a3e31a945ca66e3e364976a6dd1bc31bbbf87fa0dc372737b1c7b60943",
+        "size": 2037
+      },
+      "relationships": [
+        {
+          "rel": "child_of",
+          "target": {
+            "asset_id": "wiki_ce98325a838349afb37001e76e87e1d4"
+          }
+        }
+      ],
+      "created_at": "2026-09-29T02:42:15.630Z",
+      "updated_at": "2026-09-29T02:43:17.944Z"
+    },
+    {
+      "id": "wiki_92954abf22b04a0e8beae54cd5b88c9b",
+      "kind": "document.wiki-page",
+      "name": "Route map, forks and misleading maps",
+      "owner": "dt-design",
+      "role": "source",
+      "media_type": "application/vnd.dreamatron.wiki+json",
+      "tags": [],
+      "storage": {
+        "mode": "managed",
+        "path": "Design/wiki/wiki_92954abf22b04a0e8beae54cd5b88c9b.wiki.json",
+        "path_kind": "file"
+      },
+      "integrity": {
+        "sha256": "fec67205481b754265b505fcdd02fa7da0641aedc76aa1bc0b3273390faddeba",
+        "size": 2059
+      },
+      "relationships": [
+        {
+          "rel": "child_of",
+          "target": {
+            "asset_id": "wiki_ce98325a838349afb37001e76e87e1d4"
+          }
+        }
+      ],
+      "created_at": "2026-09-29T02:42:16.443Z",
+      "updated_at": "2026-09-29T02:43:18.612Z"
+    },
+    {
+      "id": "wiki_90004177560f4116bcb8e4699ca214ac",
+      "kind": "document.wiki-page",
+      "name": "Strangers, tells and clues",
+      "owner": "dt-design",
+      "role": "source",
+      "media_type": "application/vnd.dreamatron.wiki+json",
+      "tags": [],
+      "storage": {
+        "mode": "managed",
+        "path": "Design/wiki/wiki_90004177560f4116bcb8e4699ca214ac.wiki.json",
+        "path_kind": "file"
+      },
+      "integrity": {
+        "sha256": "67565f7487b7f110df433723062fba38b891558d52efc586417636f622c36199",
+        "size": 2289
+      },
+      "relationships": [
+        {
+          "rel": "child_of",
+          "target": {
+            "asset_id": "wiki_ce98325a838349afb37001e76e87e1d4"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_a8800207e6b340adb39d5358a0d26b6a"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_92954abf22b04a0e8beae54cd5b88c9b"
+          }
+        }
+      ],
+      "created_at": "2026-09-29T02:42:17.383Z",
+      "updated_at": "2026-09-29T02:43:19.283Z"
+    },
+    {
+      "id": "wiki_31b23e0204574fd3aeccd729ed51f838",
+      "kind": "document.wiki-page",
+      "name": "Companions",
+      "owner": "dt-design",
+      "role": "source",
+      "media_type": "application/vnd.dreamatron.wiki+json",
+      "tags": [],
+      "storage": {
+        "mode": "managed",
+        "path": "Design/wiki/wiki_31b23e0204574fd3aeccd729ed51f838.wiki.json",
+        "path_kind": "file"
+      },
+      "integrity": {
+        "sha256": "49bbffed2801cebfdac417cdebb3404ffc04ac533075630cb3c6803c622fadd2",
+        "size": 1622
+      },
+      "relationships": [
+        {
+          "rel": "child_of",
+          "target": {
+            "asset_id": "wiki_ce98325a838349afb37001e76e87e1d4"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_0585cce8c1ba43e39cccbd96c7969756"
+          }
+        }
+      ],
+      "created_at": "2026-09-29T02:42:18.702Z",
+      "updated_at": "2026-09-29T02:43:20.036Z"
+    },
+    {
+      "id": "wiki_b50df739db504e64bcebceed87c45c1e",
+      "kind": "document.wiki-page",
+      "name": "Content catalog",
+      "owner": "dt-design",
+      "role": "source",
+      "media_type": "application/vnd.dreamatron.wiki+json",
+      "tags": [],
+      "storage": {
+        "mode": "managed",
+        "path": "Design/wiki/wiki_b50df739db504e64bcebceed87c45c1e.wiki.json",
+        "path_kind": "file"
+      },
+      "integrity": {
+        "sha256": "c41e80fce42449f9812e3919ee6ba5b818bf0e8f4e8f37f867122d7b18d20eee",
+        "size": 2180
+      },
+      "relationships": [
+        {
+          "rel": "child_of",
+          "target": {
+            "asset_id": "wiki_f49ddc7790f742468969cc78421db6ff"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_068f0c86c1c54d9699703ce9ca79672c"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_31b23e0204574fd3aeccd729ed51f838"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_92954abf22b04a0e8beae54cd5b88c9b"
+          }
+        }
+      ],
+      "created_at": "2026-09-29T02:42:20.560Z",
+      "updated_at": "2026-09-29T02:45:24.187Z"
+    },
+    {
+      "id": "wiki_8bb6a3fb4b8b404ea6a7c6aacc154148",
+      "kind": "document.wiki-page",
+      "name": "Web client",
+      "owner": "dt-design",
+      "role": "source",
+      "media_type": "application/vnd.dreamatron.wiki+json",
+      "tags": [],
+      "storage": {
+        "mode": "managed",
+        "path": "Design/wiki/wiki_8bb6a3fb4b8b404ea6a7c6aacc154148.wiki.json",
+        "path_kind": "file"
+      },
+      "integrity": {
+        "sha256": "d4b75fdcaa8a71994c1220ba94ab1d1bdbb5bdce9793643683977457dae5298d",
+        "size": 3264
+      },
+      "relationships": [
+        {
+          "rel": "child_of",
+          "target": {
+            "asset_id": "wiki_f49ddc7790f742468969cc78421db6ff"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_391410254a5941e7b9bcb31b7f1bf1cc"
+          }
+        }
+      ],
+      "created_at": "2026-09-29T02:42:22.156Z",
+      "updated_at": "2026-09-29T02:43:21.198Z"
+    },
+    {
+      "id": "wiki_0585cce8c1ba43e39cccbd96c7969756",
+      "kind": "document.wiki-page",
+      "name": "Story and video pipeline",
+      "owner": "dt-design",
+      "role": "source",
+      "media_type": "application/vnd.dreamatron.wiki+json",
+      "tags": [],
+      "storage": {
+        "mode": "managed",
+        "path": "Design/wiki/wiki_0585cce8c1ba43e39cccbd96c7969756.wiki.json",
+        "path_kind": "file"
+      },
+      "integrity": {
+        "sha256": "d0973f7397ba2841a338cec1577fb73b5e6284276ee6e3d8ff61378ec990b09d",
+        "size": 4101
+      },
+      "relationships": [
+        {
+          "rel": "child_of",
+          "target": {
+            "asset_id": "wiki_f49ddc7790f742468969cc78421db6ff"
+          }
+        }
+      ],
+      "created_at": "2026-09-29T02:42:23.811Z",
+      "updated_at": "2026-09-29T02:43:21.746Z"
+    },
+    {
+      "id": "wiki_149ccab76e294a08917e74c2d3d713ae",
+      "kind": "document.wiki-page",
+      "name": "In progress",
+      "owner": "dt-design",
+      "role": "source",
+      "media_type": "application/vnd.dreamatron.wiki+json",
+      "tags": [],
+      "storage": {
+        "mode": "managed",
+        "path": "Design/wiki/wiki_149ccab76e294a08917e74c2d3d713ae.wiki.json",
+        "path_kind": "file"
+      },
+      "integrity": {
+        "sha256": "feed6c278914b0c65c5482b576d35f3a5f804423080fd9b6f95c7514a89247e5",
+        "size": 1752
+      },
+      "relationships": [
+        {
+          "rel": "child_of",
+          "target": {
+            "asset_id": "wiki_f49ddc7790f742468969cc78421db6ff"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_0585cce8c1ba43e39cccbd96c7969756"
+          }
+        }
+      ],
+      "created_at": "2026-09-29T02:42:25.621Z",
+      "updated_at": "2026-09-29T02:43:22.247Z"
+    },
+    {
+      "id": "wiki_391410254a5941e7b9bcb31b7f1bf1cc",
+      "kind": "document.wiki-page",
+      "name": "Build, test and verify",
+      "owner": "dt-design",
+      "role": "source",
+      "media_type": "application/vnd.dreamatron.wiki+json",
+      "tags": [],
+      "storage": {
+        "mode": "managed",
+        "path": "Design/wiki/wiki_391410254a5941e7b9bcb31b7f1bf1cc.wiki.json",
+        "path_kind": "file"
+      },
+      "integrity": {
+        "sha256": "29ebaae3d5764e5883a12eaa5a0f6e7b4d1620daed789a24299bae7b025b9e18",
+        "size": 2734
+      },
+      "relationships": [
+        {
+          "rel": "child_of",
+          "target": {
+            "asset_id": "wiki_f49ddc7790f742468969cc78421db6ff"
+          }
+        },
+        {
+          "rel": "references",
+          "target": {
+            "asset_id": "wiki_0585cce8c1ba43e39cccbd96c7969756"
+          }
+        }
+      ],
+      "created_at": "2026-09-29T02:42:27.260Z",
+      "updated_at": "2026-09-29T02:43:22.781Z"
+    },
+    {
+      "id": "wiki_1967cbc301584453a9fdec78c0078281",
+      "kind": "document.wiki-page",
+      "name": "Glossary",
+      "owner": "dt-design",
+      "role": "source",
+      "media_type": "application/vnd.dreamatron.wiki+json",
+      "tags": [],
+      "storage": {
+        "mode": "managed",
+        "path": "Design/wiki/wiki_1967cbc301584453a9fdec78c0078281.wiki.json",
+        "path_kind": "file"
+      },
+      "integrity": {
+        "sha256": "1508a108a6221320afa24bb05e2188f285d446da27a3b86f9241f9ae5db856a4",
+        "size": 1905
+      },
+      "relationships": [
+        {
+          "rel": "child_of",
+          "target": {
+            "asset_id": "wiki_f49ddc7790f742468969cc78421db6ff"
+          }
+        }
+      ],
+      "created_at": "2026-09-29T02:42:29.248Z",
+      "updated_at": "2026-09-29T02:43:23.316Z"
     }
   ]
 }

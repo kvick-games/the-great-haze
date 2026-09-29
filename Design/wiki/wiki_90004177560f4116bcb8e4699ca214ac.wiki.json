@@ -1,0 +1,16 @@
+{
+  "schema": "dreamatron.wiki-page/1",
+  "id": "wiki_90004177560f4116bcb8e4699ca214ac",
+  "revision": 2,
+  "title": "Strangers, tells and clues",
+  "summary": "Hidden truth, tells and the grammar of clues.",
+  "aliases": [],
+  "parentId": "wiki_ce98325a838349afb37001e76e87e1d4",
+  "bodyHtml": "<p>A stranger scene rolls a hidden truth (<code>genuine</code> or <code>trap</code>), then rolls which tells are present. The intro text never changes. The player gets one free first impression, then may spend an hour per Look closer (up to 3) to surface more. A scout or paranoid companion reveals two at a time.</p><h2>The grammar</h2><ul><li>Traps tend to be too clean and too eager: unmarked boots, tidy fires, hidden cover and trampled grass, questions about your guns before your names, stories with a hole, oxen that will not look at them.</li><li>Genuine need tends to ask for less than it needs: old real wounds, shame, warnings before requests, hands cracked from work, a place set for someone gone.</li><li>Noise (a nervous glance at the Haze) appears under either truth.</li></ul><h2>Structure</h2><p>Each tell has <code>id</code>, <code>text</code>, <code>shows</code>, <code>p</code>, <code>severity</code> (1 subtle, 2 clear, 3 unmistakable) and <code>say</code>, what the observer mutters aloud. Every scene has a genuine and a trap tell of severity 2 or more, so honest people give themselves away as clearly as liars.</p><ul><li>Look closer is a <code>spot</code> check; its margin decides how many tells surface.</li><li>Read them is a <code>see-lie</code> check that yields a verdict (genuine, trap, unsure), which can be wrong on a bad roll.</li><li>Frayed observers can misread tells (see <a href=\"wiki:wiki_a8800207e6b340adb39d5358a0d26b6a\">Party, traits, nerve and health</a>).</li><li>Map sellers use the same grammar (see <a href=\"wiki:wiki_92954abf22b04a0e8beae54cd5b88c9b\">Route map, forks and misleading maps</a>).</li></ul><p>Files: <code>src/game/content/scenes/strangers.ts</code>, <code>talk-types.ts</code>; 3D cues in <code>web/src/talk/tells.ts</code>.</p>",
+  "links": [
+    "wiki_a8800207e6b340adb39d5358a0d26b6a",
+    "wiki_92954abf22b04a0e8beae54cd5b88c9b"
+  ],
+  "createdAt": "2026-09-29T02:42:17.221Z",
+  "updatedAt": "2026-09-29T02:43:19.135Z"
+}

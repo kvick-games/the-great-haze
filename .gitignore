@@ -10,3 +10,7 @@ artifacts/
 *.lock/
 .dreamengine/studio-instance-*.json
 .dreamengine/cache/
+
+# Hyperlab project storage and generated media (never commit; repo is public)
+.hyperlab/
+outputs/

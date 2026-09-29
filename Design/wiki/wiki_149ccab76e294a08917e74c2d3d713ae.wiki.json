@@ -1,0 +1,15 @@
+{
+  "schema": "dreamatron.wiki-page/1",
+  "id": "wiki_149ccab76e294a08917e74c2d3d713ae",
+  "revision": 2,
+  "title": "In progress",
+  "summary": "Work underway and not yet part of the committed game.",
+  "aliases": [],
+  "parentId": "wiki_f49ddc7790f742468969cc78421db6ff",
+  "bodyHtml": "<p>Everything on this page is in progress and not yet part of the tested, committed game. Details may change; check the repo history and DreamTrack for current state.</p><ul><li>Relationships, romance and cheating: bonds between members grow into attachments, with notice rolls for whether others catch on. In progress.</li><li>Witch kidnapping storyline: a multi-scene arc in which a witch takes a party member. In progress.</li><li>Crew portraits and detail panel: portraits for the party and a panel showing each member's traits and state. In progress.</li><li>Robotic TTS fallback: browser speech synthesis for spoken lines when no generated audio exists. In progress.</li><li>Free camera orbit: player-controlled orbit of the 3D view, with the framed shots as the default. In progress.</li></ul><p>Also still open from earlier plans (see <code>docs/handoff-video-experiment.md</code> and <code>docs/design.md</code>):</p><ul><li>The Dream Engine binding: Studio scenes, prefabs and UI. <code>src/main.ts</code> is a placeholder.</li><li>Live checks of the Hyperlab and fal integrations (see <a href=\"wiki:wiki_0585cce8c1ba43e39cccbd96c7969756\">Story and video pipeline</a>).</li><li>Registering new game files in <code>project.dtproject</code> through the shared project-format transaction API.</li></ul>",
+  "links": [
+    "wiki_0585cce8c1ba43e39cccbd96c7969756"
+  ],
+  "createdAt": "2026-09-29T02:42:25.415Z",
+  "updatedAt": "2026-09-29T02:43:22.161Z"
+}

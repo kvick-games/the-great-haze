@@ -1,0 +1,13 @@
+{
+  "schema": "dreamatron.wiki-page/1",
+  "id": "wiki_1967cbc301584453a9fdec78c0078281",
+  "revision": 2,
+  "title": "Glossary",
+  "summary": "Terms used across the game and its docs.",
+  "aliases": [],
+  "parentId": "wiki_f49ddc7790f742468969cc78421db6ff",
+  "bodyHtml": "<ul><li>Beat: one recorded story moment produced from a choice, with mutations and stakes.</li><li>Blue Reach: the destination, 840 miles away, behind a gate and a ledger.</li><li>Check: a d20 roll by the best-suited party member against a dc; kinds persuade, calm, haggle, talk-down, spot, see-lie.</li><li>Datom: an immutable fact <code>[entity, attribute, value, tx, added]</code> in the story log.</li><li>Datom mutation: a typed change to a character's facts, such as a wound, costume or death.</li><li>Director: the web module that stages each state transition in 3D.</li><li>Fogsick: stages 0 to 3 of Haze exposure; stage 3 Turns a companion.</li><li>Gap: miles between the wagons and the Haze's leading edge.</li><li>Great Haze: the crimson fog rolling west.</li><li>H3: the video model family used for reference-to-video clips.</li><li>Hollowed: people the Haze emptied; they follow it.</li><li>Look: a character's structured appearance, used for portraits and video prompts.</li><li>lucifer-comfy: the local Hyperlab worker that renders prebaked clips.</li><li>Nerve: party mood and perception; low nerve means quarrels and misread tells.</li><li>Scrip: money.</li><li>Story graph: the <code>hyperlab.sequence</code> file built from beats.</li><li>Tell: evidence in a stranger scene that points toward genuine or trap.</li><li>Trap and genuine: the hidden truth of a stranger scene.</li><li>Wagon-master: the player's character; their death ends the run.</li><li>Zone: far, near, close or upon, by gap size.</li></ul>",
+  "links": [],
+  "createdAt": "2026-09-29T02:42:28.528Z",
+  "updatedAt": "2026-09-29T02:43:23.228Z"
+}

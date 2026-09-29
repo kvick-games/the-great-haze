@@ -1,0 +1,13 @@
+{
+  "schema": "dreamatron.wiki-page/1",
+  "id": "wiki_9ac46d029d9a4568be94d0854cc6c668",
+  "revision": 2,
+  "title": "Dialogue and in-world talk",
+  "summary": "Spoken lines, moods and gestures.",
+  "aliases": [],
+  "parentId": "wiki_ce98325a838349afb37001e76e87e1d4",
+  "bodyHtml": "<p>The cards say little; people talk. A scene has an <code>intro</code> of one or two short lines plus <code>talk</code>, two to six spoken lines. Outcomes carry their own <code>talk</code> (one to four lines) and a one-line <code>text</code>.</p><ul><li>A <code>Line</code> is <code>{ who, text, mood?, gesture?, alt? }</code>, at most 14 words.</li><li><code>who</code>: <code>leader</code>, <code>actor</code>, <code>other</code>, <code>a</code>, <code>b</code>, <code>observer</code>, <code>by</code> (whoever made the option's check), <code>stranger</code>, <code>role:&lt;role&gt;</code>, <code>npc:&lt;id&gt;</code>.</li><li>Lines resolve when the screen is built (<code>SpokenLine</code>), never at authoring time, so a dead speaker is skipped and outcome lines resolve before effects apply.</li><li><code>alt</code> swaps the words when the speaker has a trait (kind, paranoid, coward...). Without a <code>mood</code>, a member's is derived from traits and nerve.</li><li>Moods: calm, afraid, angry, pleading, sly, grieving, cold.</li><li>Gestures: none, point, beckon, shrug, raise-hands, clutch, kneel, draw-weapon, offer, turn-away.</li></ul><p>The sets are exported from <code>src/game/talk-types.ts</code> so clients can stage them. In the 3D client, figures walk up, turn, gesture and speak (<code>web/src/talk/conversation.ts</code>, <code>cast.ts</code>, <code>ui/speech.ts</code>), and the camera cuts to an angle that shows a speaker hidden behind oxen or wagons.</p><p>Files: <code>src/game/dialogue.ts</code>, <code>talk-types.ts</code>; tests <code>test/dialogue.test.ts</code>, <code>test/dialogue-content.test.ts</code>.</p>",
+  "links": [],
+  "createdAt": "2026-09-29T02:42:15.513Z",
+  "updatedAt": "2026-09-29T02:43:17.777Z"
+}

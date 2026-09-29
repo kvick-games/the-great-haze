@@ -1,0 +1,15 @@
+{
+  "schema": "dreamatron.wiki-page/1",
+  "id": "wiki_e1378f9cb47a473db095e47ba38318d6",
+  "revision": 2,
+  "title": "Resources and the store",
+  "summary": "Seven resources, stores and cargo limits.",
+  "aliases": [],
+  "parentId": "wiki_ce98325a838349afb37001e76e87e1d4",
+  "bodyHtml": "<p>Seven resources: rations, torches, ammo, medicine (physic), spares, veils, rockets. Each drains on its own clock.</p><ul><li>The Cinder Ford Emporium sells with 600 scrip and a hard cargo cap. Rations for the whole trip alone would cost more than you have.</li><li>Anything found must fit in the wagons or be left behind.</li><li>Stopping to shop at a store costs hours.</li><li>The Meridian Wayhouse commissary short-weights rations and physic by a fifth unless you spend an hour checking the scales; a fair tell is in the shop text.</li><li>Last Lamp is the last store, with brutal prices.</li><li>Torches are both light and defense: the camp ring is the nightly cost, and torches are strong against the Hollowed and beasts in combat.</li><li>Spares repair wagons; a mechanic halves repair time.</li><li>Maps are also bought at the start store or outposts. See <a href=\"wiki:wiki_92954abf22b04a0e8beae54cd5b88c9b\">Route map, forks and misleading maps</a>.</li></ul><p>Files: <code>src/game/world.ts</code> (stores), <code>types.ts</code> (resource ids), <code>tuning.ts</code>, <code>night.ts</code>.</p>",
+  "links": [
+    "wiki_92954abf22b04a0e8beae54cd5b88c9b"
+  ],
+  "createdAt": "2026-09-29T02:42:13.499Z",
+  "updatedAt": "2026-09-29T02:42:56.245Z"
+}

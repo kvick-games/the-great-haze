@@ -1,0 +1,16 @@
+{
+  "schema": "dreamatron.wiki-page/1",
+  "id": "wiki_a8800207e6b340adb39d5358a0d26b6a",
+  "revision": 2,
+  "title": "Party, traits, nerve and health",
+  "summary": "Roles, traits, nerve, disputes and injury.",
+  "aliases": [],
+  "parentId": "wiki_ce98325a838349afb37001e76e87e1d4",
+  "bodyHtml": "<p>Each member has health, nerve, trust in you, bonds with each other, one role and two traits.</p><h2>Roles</h2><p>Scout, mechanic, medic, hunter, guard, speaker. Roles unlock or improve options: a mechanic halves repair time, a medic stretches physic, a speaker bargains and talks people down.</p><h2>Traits</h2><p>Hothead, kind, paranoid, greedy, stoic, pious, coward, veteran, charming, sickly, haunted. Traits change how nerve is lost, how fights and quarrels go, who reads strangers well, and who breaks first.</p><h2>Nerve</h2><p>The party's mood and perception. Below 30 people are frayed and quarrels spike; at 0 someone may walk into the Haze. Frayed observers can misread tells, seeing evidence that points the wrong way.</p><h2>Disputes</h2><p>Quarrels are scenes: back one side, mediate (costs hours), cut it off, or look away and risk a fistfight. Some accusations carry hidden truth and tells too (who really took the rations).</p><h2>Injury</h2><p>Zero health does not kill outright. The member is dying and you have until the second nightfall to spend physic. Another hit while dying is fatal; rest does not help. Wounds bleed a little each night and may close on their own.</p><h2>The wagon-master</h2><p>A person in the party. If they die, the run ends. Sacrifice and crisis scenes never target them.</p><h2>Roster</h2><p>A 12-person roster plus recruitable strangers and nine named companions. See <a href=\"wiki:wiki_b50df739db504e64bcebceed87c45c1e\">Content catalog</a> and <a href=\"wiki:wiki_31b23e0204574fd3aeccd729ed51f838\">Companions</a>.</p><p>Files: <code>src/game/party.ts</code>, <code>content/roster.ts</code>, <code>checks.ts</code>.</p>",
+  "links": [
+    "wiki_b50df739db504e64bcebceed87c45c1e",
+    "wiki_31b23e0204574fd3aeccd729ed51f838"
+  ],
+  "createdAt": "2026-09-29T02:42:14.066Z",
+  "updatedAt": "2026-09-29T02:43:01.470Z"
+}

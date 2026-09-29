@@ -1,0 +1,16 @@
+{
+  "schema": "dreamatron.wiki-page/1",
+  "id": "wiki_068f0c86c1c54d9699703ce9ca79672c",
+  "revision": 2,
+  "title": "Combat",
+  "summary": "Tactics, costs and enemy behavior.",
+  "aliases": [],
+  "parentId": "wiki_ce98325a838349afb37001e76e87e1d4",
+  "bodyHtml": "<p>Short and expensive. Each round costs half an hour off the road and each tactic burns something.</p><ul><li>Fire: shot, one charge per shooter.</li><li>Hold the line: costs only blood.</li><li>Torches (2): devastating against the Hollowed and beasts, useless against men.</li><li>Signal rocket: may break their nerve.</li><li>Pay them off.</li><li>Run: cargo is dumped.</li></ul><p>Enemies scale with distance travelled. Humans can break and flee; the Hollowed do not. Eight enemy types are listed on <a href=\"wiki:wiki_b50df739db504e64bcebceed87c45c1e\">Content catalog</a>.</p><p>Files: <code>src/game/combat.ts</code>, <code>content/enemies.ts</code>. The 3D staging is in <code>web/src/scenes/combat.ts</code> (see <a href=\"wiki:wiki_8bb6a3fb4b8b404ea6a7c6aacc154148\">Web client</a>).</p>",
+  "links": [
+    "wiki_b50df739db504e64bcebceed87c45c1e",
+    "wiki_8bb6a3fb4b8b404ea6a7c6aacc154148"
+  ],
+  "createdAt": "2026-09-29T02:42:14.563Z",
+  "updatedAt": "2026-09-29T02:43:12.071Z"
+}

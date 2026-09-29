@@ -1,0 +1,21 @@
+{
+  "schema": "dreamatron.wiki-page/1",
+  "id": "wiki_f49ddc7790f742468969cc78421db6ff",
+  "revision": 2,
+  "title": "The Great Haze: Start here",
+  "summary": "Start here: what The Great Haze is, its status, and how these pages are organized.",
+  "aliases": [],
+  "bodyHtml": "<p>Working title. A modern horror take on Oregon Trail: lead a wagon train 840 miles to the Blue Reach while a crimson fog, the Great Haze, closes in behind you. Resources are always tight, half of the people begging for help are lying, and you can never stop for free.</p><p>Repository: <code>https://github.com/kvick-games/the-great-haze</code> (local checkout <code>D:\\Dreamatron\\Games\\TheGreatHaze</code>). Project authority: <code>project.dtproject</code>, project id <code>the-great-haze</code>. File paths on these pages are relative to the repo root.</p><h2>Status</h2><ul><li>Playable in 3D in the browser; the simulation core is implemented and tested.</li><li>Not yet bound to Dream Engine: <code>src/main.ts</code> is still the placeholder and no Studio scenes exist. See <a href=\"wiki:wiki_391410254a5941e7b9bcb31b7f1bf1cc\">Build, test and verify</a>.</li><li>Several features are in progress. They are collected on <a href=\"wiki:wiki_149ccab76e294a08917e74c2d3d713ae\">In progress</a> and marked there; nothing else on these pages is speculative.</li></ul><h2>Read in this order</h2><ol><li><a href=\"wiki:wiki_61c7f1dd80df4edfb9503d16eeec38bb\">Brief and pillars</a>: what was asked and the six pillars the rules enforce.</li><li><a href=\"wiki:wiki_ce98325a838349afb37001e76e87e1d4\">Core loop and systems</a>: how a run works, with a page per system.</li><li><a href=\"wiki:wiki_b50df739db504e64bcebceed87c45c1e\">Content catalog</a>: the 84 scenes, 8 enemies, roster and companions.</li><li><a href=\"wiki:wiki_8bb6a3fb4b8b404ea6a7c6aacc154148\">Web client</a>: the Three.js presentation layer.</li><li><a href=\"wiki:wiki_0585cce8c1ba43e39cccbd96c7969756\">Story and video pipeline</a>: story graph, character datoms and Hyperlab video.</li><li><a href=\"wiki:wiki_149ccab76e294a08917e74c2d3d713ae\">In progress</a>: work underway right now.</li><li><a href=\"wiki:wiki_391410254a5941e7b9bcb31b7f1bf1cc\">Build, test and verify</a> and <a href=\"wiki:wiki_1967cbc301584453a9fdec78c0078281\">Glossary</a>.</li></ol><h2>Source of truth</h2><p>These pages summarize and link. The repo owns the detail:</p><ul><li><code>docs/game-brief.md</code>: the original request, untouched.</li><li><code>docs/design.md</code>: premise, art direction, systems, tuning.</li><li><code>docs/video-pipeline.md</code>: the story layer and video routes.</li><li><code>docs/handoff-video-experiment.md</code>: the plan for dialogue, maps, companions and video.</li><li><code>AGENTS.md</code>: rules for agents working in the repo.</li></ul>",
+  "links": [
+    "wiki_391410254a5941e7b9bcb31b7f1bf1cc",
+    "wiki_149ccab76e294a08917e74c2d3d713ae",
+    "wiki_61c7f1dd80df4edfb9503d16eeec38bb",
+    "wiki_ce98325a838349afb37001e76e87e1d4",
+    "wiki_b50df739db504e64bcebceed87c45c1e",
+    "wiki_8bb6a3fb4b8b404ea6a7c6aacc154148",
+    "wiki_0585cce8c1ba43e39cccbd96c7969756",
+    "wiki_1967cbc301584453a9fdec78c0078281"
+  ],
+  "createdAt": "2026-09-29T02:42:11.045Z",
+  "updatedAt": "2026-09-29T02:42:34.152Z"
+}

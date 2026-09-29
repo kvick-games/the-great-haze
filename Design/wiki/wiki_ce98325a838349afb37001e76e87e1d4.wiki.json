@@ -1,0 +1,24 @@
+{
+  "schema": "dreamatron.wiki-page/1",
+  "id": "wiki_ce98325a838349afb37001e76e87e1d4",
+  "revision": 2,
+  "title": "Core loop and systems",
+  "summary": "How a run works and links to each system.",
+  "aliases": [],
+  "parentId": "wiki_f49ddc7790f742468969cc78421db6ff",
+  "bodyHtml": "<p>The rules live in <code>src/game/</code>, an engine-agnostic simulation core: plain-JSON state, a seeded RNG, and a screen-in, option-out API (<code>Game.create</code>, <code>game.screen()</code>, <code>game.choose(id)</code>, <code>serialize</code>/<code>restore</code>). It never imports rendering, engine or Node modules, and never imports <code>src/story/</code>. Every client (terminal, bots, 3D browser) drives the same API.</p><h2>A run</h2><ol><li>Muster at Cinder Ford: pick four companions from six offered, plus you with a chosen background (surveyor, nurse, wheelwright, sergeant).</li><li>Buy supplies: 600 scrip, seven goods, a cargo cap.</li><li>Each day: morning plan (pace and rations, optional repair, treat, rally, forage), the road (up to two scenes and possibly a quarrel), nightfall (supper, torches, the Haze creeping in, wounds, crises). Landmarks fire at their mile.</li><li>The Gate of the Blue Reach, which refuses anyone the Haze has marked. Four endings.</li></ol><h2>System pages</h2><ul><li><a href=\"wiki:wiki_850ec356785542fe87ac090d99f24e27\">Travel and the Haze</a></li><li><a href=\"wiki:wiki_e1378f9cb47a473db095e47ba38318d6\">Resources and the store</a></li><li><a href=\"wiki:wiki_a8800207e6b340adb39d5358a0d26b6a\">Party, traits, nerve and health</a></li><li><a href=\"wiki:wiki_068f0c86c1c54d9699703ce9ca79672c\">Combat</a></li><li><a href=\"wiki:wiki_c53c46801df54f12be2e66548623269b\">Scenes, choices and checks</a></li><li><a href=\"wiki:wiki_9ac46d029d9a4568be94d0854cc6c668\">Dialogue and in-world talk</a></li><li><a href=\"wiki:wiki_92954abf22b04a0e8beae54cd5b88c9b\">Route map, forks and misleading maps</a></li><li><a href=\"wiki:wiki_90004177560f4116bcb8e4699ca214ac\">Strangers, tells and clues</a></li><li><a href=\"wiki:wiki_31b23e0204574fd3aeccd729ed51f838\">Companions</a></li></ul><p>Main files: <code>src/game/game.ts</code>, <code>types.ts</code>, <code>tuning.ts</code>, <code>world.ts</code>, <code>travel.ts</code>, <code>night.ts</code>, <code>party.ts</code>, <code>combat.ts</code>, <code>checks.ts</code>, <code>dialogue.ts</code>, <code>effects.ts</code>, <code>routes.ts</code>, <code>map.ts</code>, <code>ending.ts</code>.</p><p>Every tuning knob is in <code>src/game/tuning.ts</code> and <code>src/game/world.ts</code>. Use the simulator rather than guessing (see <a href=\"wiki:wiki_391410254a5941e7b9bcb31b7f1bf1cc\">Build, test and verify</a>). Targets on Exodus (normal), measured by bots: careful play wins about 30%, always-help under 10%, never-stop about 0%. Bots read scene data directly, so treat these as upper bounds.</p>",
+  "links": [
+    "wiki_850ec356785542fe87ac090d99f24e27",
+    "wiki_e1378f9cb47a473db095e47ba38318d6",
+    "wiki_a8800207e6b340adb39d5358a0d26b6a",
+    "wiki_068f0c86c1c54d9699703ce9ca79672c",
+    "wiki_c53c46801df54f12be2e66548623269b",
+    "wiki_9ac46d029d9a4568be94d0854cc6c668",
+    "wiki_92954abf22b04a0e8beae54cd5b88c9b",
+    "wiki_90004177560f4116bcb8e4699ca214ac",
+    "wiki_31b23e0204574fd3aeccd729ed51f838",
+    "wiki_391410254a5941e7b9bcb31b7f1bf1cc"
+  ],
+  "createdAt": "2026-09-29T02:42:12.079Z",
+  "updatedAt": "2026-09-29T02:42:48.035Z"
+}

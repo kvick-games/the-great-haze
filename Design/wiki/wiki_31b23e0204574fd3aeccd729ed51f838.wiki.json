@@ -1,0 +1,15 @@
+{
+  "schema": "dreamatron.wiki-page/1",
+  "id": "wiki_31b23e0204574fd3aeccd729ed51f838",
+  "revision": 2,
+  "title": "Companions",
+  "summary": "Nine named companions and how they join.",
+  "aliases": [],
+  "parentId": "wiki_ce98325a838349afb37001e76e87e1d4",
+  "bodyHtml": "<p><code>src/game/content/npcs.ts</code> defines nine named companions: Mattie Voss, Juniper Cole, Thaddeus Moreau, Birdie Nkemelu, Brother Ambrose, Rue Delacroix, Orin Fell, Hollis Grey, Nell Ashby.</p><p>Each has a role, traits, a one-line backstory, a <code>Look</code> (build, height, age, skin, hair, clothing, palette, prop, marks, summary), join lines, and a complication scene. Looks are meant for portraits and video prompts.</p><ul><li>Recruiting one makes them an ordinary party member (<code>recruited</code>, flag <code>joined:&lt;id&gt;</code>).</li><li>After <code>afterDays</code>, their complication fires once as a scene where they speak.</li><li>Some strangers recur, gated on <code>met:&lt;id&gt;</code> flags.</li><li>17 companion scenes cover first meetings, complications and returns.</li></ul><p>The starting roster (<code>content/roster.ts</code>) is separate: twelve people such as Ines Calloway, Dov Reyes, Sister Odalys and Cutter Vance, plus recruitable strangers.</p><p>In the story layer each named companion is a character with datoms, so the same face appears in video. See <a href=\"wiki:wiki_0585cce8c1ba43e39cccbd96c7969756\">Story and video pipeline</a>.</p>",
+  "links": [
+    "wiki_0585cce8c1ba43e39cccbd96c7969756"
+  ],
+  "createdAt": "2026-09-29T02:42:18.444Z",
+  "updatedAt": "2026-09-29T02:43:19.889Z"
+}

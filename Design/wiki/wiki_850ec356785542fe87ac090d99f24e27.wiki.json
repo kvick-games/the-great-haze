@@ -1,0 +1,13 @@
+{
+  "schema": "dreamatron.wiki-page/1",
+  "id": "wiki_850ec356785542fe87ac090d99f24e27",
+  "revision": 2,
+  "title": "Travel and the Haze",
+  "summary": "The gap, zones, pace, fogsick and the last stand.",
+  "aliases": [],
+  "parentId": "wiki_ce98325a838349afb37001e76e87e1d4",
+  "bodyHtml": "<h2>The gap</h2><p><code>gap</code> is the distance in miles between the wagons and the Haze's leading edge, starting at 58. Each day the Haze advances about 8 to 12 miles depending on region, with noise, occasional surges (+8) and lulls (-5). A haunted companion can hear a surge coming and warns you at the morning plan.</p><p>The Haze does not let you get comfortable: past a gap of about 62 miles it quickens in proportion to your lead, so a cushion cannot grow without bound. The plan screen shows the expected move including this catch-up.</p><h2>Zones</h2><p><code>far</code> at 45 or more, <code>near</code> at 25, <code>close</code> at 10, <code>upon</code> below 10. The closer it is, the more it costs nerve, the more Hollowed and Haze phenomena appear, and below 32 miles the more torches burn each night.</p><h2>Time and pace</h2><p>You advance travel hours times miles per hour. Hours spent on anything else reduce travel hours; overflow spills into tomorrow. Pace: Easy, Steady, Forced march, Halt. Rations: Full, Meager, Bare. Halt gives the Haze a full day on you.</p><h2>Fogsick</h2><p>Breathing the Haze gives stages 0 to 3. At 3 a companion is Turned. If the wagon-master reaches stage 3 the run ends. Haze veils block much of it; physic eases a stage at a time but never below stage I; only distance wears the mark away, slowly.</p><h2>Last stand</h2><p>Below a gap of 14 a scene offers ways to buy miles, and each costs: send the weakest companion back with the last torches (+12 to 16 miles), cut a wagon loose, burn a firebreak, or refuse.</p><h2>Regions and landmarks</h2><p>Six regions: the Tallow Fields, Sallow Fen, Glass Flats, Drowned Pines, the Spine, the Threshold. Landmarks: Ninefold Bridge, Meridian Wayhouse (a store whose factor short-weights unless you check the scales), the Fork at Glass Cross, Mission of Saint Ambrose, the Toll Gate, Last Lamp, and the Gate of the Blue Reach. The Gate refuses the marked: smuggle them in with a lie and risk everyone, leave them in the quarantine ward, or stay outside together.</p><p>Files: <code>src/game/travel.ts</code>, <code>night.ts</code>, <code>world.ts</code>, <code>tuning.ts</code>, <code>ending.ts</code>.</p>",
+  "links": [],
+  "createdAt": "2026-09-29T02:42:12.905Z",
+  "updatedAt": "2026-09-29T02:42:51.418Z"
+}

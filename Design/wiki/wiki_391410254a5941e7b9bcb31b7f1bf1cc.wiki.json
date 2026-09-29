@@ -1,0 +1,15 @@
+{
+  "schema": "dreamatron.wiki-page/1",
+  "id": "wiki_391410254a5941e7b9bcb31b7f1bf1cc",
+  "revision": 2,
+  "title": "Build, test and verify",
+  "summary": "Commands to build, test, play and verify.",
+  "aliases": [],
+  "parentId": "wiki_f49ddc7790f742468969cc78421db6ff",
+  "bodyHtml": "<p>Requires Node 22.18 or newer. Run from the repo root.</p><h2>Everyday</h2><ul><li><code>npm install</code></li><li><code>npm test</code>: unit, content, invariant and pillar tests (<code>test/</code>).</li><li><code>npm run typecheck</code>: core, tools and the web client.</li><li><code>npm run validate</code>: manifests and referenced paths.</li></ul><p>Run all three before committing. Keep <code>src/game/</code> free of engine, rendering and Node imports.</p><h2>Play</h2><ul><li><code>npm run web:build</code> writes <code>dist/the-great-haze.html</code>; open it in a browser. Add <code>#fast</code> to speed cinematics. <code>-- --inline</code> bundles Three.js for offline use.</li><li><code>npm run play -- --seed 7 --name Jo --background nurse</code>: terminal player.</li></ul><h2>Verify</h2><ul><li><code>npm run web:smoke</code>: builds and plays the 3D client in headless Chromium.</li><li><code>node tools/web-scene.mjs out.png tools/scenes/&lt;setup&gt;.js 9000</code>: render one situation.</li><li><code>W=1280 H=720 node tools/web-play.mjs &lt;outdir&gt; &lt;steps&gt;</code>: play through the UI with a screenshot per new screen kind.</li><li>Set <code>CHROME_PATH</code> to a local Chrome, or run <code>npx playwright-core install chromium</code> once.</li><li><code>npm run simulate -- 200 normal</code> (or <code>dire</code>): balance report across bot strategies.</li><li><code>npm run trace -- cautious 7</code>: full transcript of one bot run.</li></ul><h2>Video</h2><p><code>npm run video:export</code>, <code>video:bake</code>, <code>video:server</code>. All dry-run by default; see <a href=\"wiki:wiki_0585cce8c1ba43e39cccbd96c7969756\">Story and video pipeline</a>.</p><h2>Project rules</h2><ul><li><code>project.dtproject</code> is the single project authority; use shared project-format transaction APIs for registry changes.</li><li>Make meaningful local Git checkpoint commits; origin is <code>https://github.com/kvick-games/the-great-haze.git</code>.</li><li>Never commit generated media (<code>outputs/</code>, <code>.hyperlab/</code>).</li><li>These wiki pages are stored under <code>Design/wiki/</code> and edited with <code>python D:\\Dreamatron\\Apps\\DT_Design\\scripts\\dtwiki.py --project &lt;repo&gt;\\project.dtproject put ...</code>.</li></ul>",
+  "links": [
+    "wiki_0585cce8c1ba43e39cccbd96c7969756"
+  ],
+  "createdAt": "2026-09-29T02:42:26.930Z",
+  "updatedAt": "2026-09-29T02:43:22.687Z"
+}

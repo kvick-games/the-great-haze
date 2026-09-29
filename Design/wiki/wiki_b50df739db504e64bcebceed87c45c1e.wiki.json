@@ -1,0 +1,17 @@
+{
+  "schema": "dreamatron.wiki-page/1",
+  "id": "wiki_b50df739db504e64bcebceed87c45c1e",
+  "revision": 3,
+  "title": "Content catalog",
+  "summary": "84 scenes by category, 8 enemies, roster and companions.",
+  "aliases": [],
+  "parentId": "wiki_f49ddc7790f742468969cc78421db6ff",
+  "bodyHtml": "<h2>Scenes: 84</h2><p>By category. Categories are grouped by content file, so these counts differ from each scene's <code>kind</code> field (for example, <code>kind</code> counts 23 strangers, 14 crises and 9 landmarks).</p><ul><li>Hazards: 11</li><li>Strangers: 15</li><li>Finds: 7</li><li>Haze events: 5</li><li>Oddities: 3</li><li>Respites: 3</li><li>Crises: 5</li><li>Quarrels: 9</li><li>Landmarks: 5</li><li>Route scenes: 4</li><li>Companion scenes: 17</li></ul><p>Source files: <code>src/game/content/scenes/</code> (<code>hazards.ts</code>, <code>strangers.ts</code>, <code>finds.ts</code>, <code>people.ts</code>, <code>landmarks.ts</code>, <code>companions.ts</code>, merged in <code>index.ts</code>) and <code>src/game/content/route-scenes.ts</code>. Content integrity is checked by <code>test/content.test.ts</code>.</p><h2>Enemies: 8</h2><p>Raiders, toll thugs, mob, Hollowed pack, single Hollowed, Haze hounds, the Long Man, the Turned. Defined in <code>src/game/content/enemies.ts</code>. See <a href=\"wiki:wiki_068f0c86c1c54d9699703ce9ca79672c\">Combat</a>.</p><h2>People</h2><ul><li>Roster: 12 people plus four founder backgrounds (<code>content/roster.ts</code>).</li><li>Named companions: 9 (<code>content/npcs.ts</code>). See <a href=\"wiki:wiki_31b23e0204574fd3aeccd729ed51f838\">Companions</a>.</li></ul><h2>Map</h2><p>Four forks, 13 route nodes, 18 edges, 4 map offers and 2 phantom destinations, 840 miles. See <a href=\"wiki:wiki_92954abf22b04a0e8beae54cd5b88c9b\">Route map, forks and misleading maps</a>.</p><h2>Endings</h2><p>Four, all earned by the run, resolved at the Gate (<code>src/game/ending.ts</code>).</p>",
+  "links": [
+    "wiki_068f0c86c1c54d9699703ce9ca79672c",
+    "wiki_31b23e0204574fd3aeccd729ed51f838",
+    "wiki_92954abf22b04a0e8beae54cd5b88c9b"
+  ],
+  "createdAt": "2026-09-29T02:42:20.242Z",
+  "updatedAt": "2026-09-29T02:45:24.148Z"
+}

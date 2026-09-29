@@ -1,0 +1,15 @@
+{
+  "schema": "dreamatron.wiki-page/1",
+  "id": "wiki_c53c46801df54f12be2e66548623269b",
+  "revision": 2,
+  "title": "Scenes, choices and checks",
+  "summary": "Scenes as data, option costs and d20 checks.",
+  "aliases": [],
+  "parentId": "wiki_ce98325a838349afb37001e76e87e1d4",
+  "bodyHtml": "<h2>Scenes as data</h2><p>A scene is a <code>SceneDef</code> (<code>src/game/types.ts</code>): id, kind, weight, regions, title, intro lines, optional <code>talk</code>, and options. Options carry an hour cost, an optional check, and results: <code>any</code>, or split by hidden truth (<code>genuine</code>, <code>trap</code>). Outcomes are lists of effects (<code>fx.res</code>, <code>fx.hp</code>, <code>fx.nerve</code>, <code>fx.combat</code>, <code>fx.recruit</code>, <code>fx.scene</code>, <code>fx.end</code>) interpreted by a small effect engine (<code>src/game/effects.ts</code>). Adding a scene means writing an object, not code. Text placeholders: <code>{actor}</code>, <code>{other}</code>, <code>{a}</code>, <code>{b}</code>, <code>{leader}</code>.</p><p><code>npm test</code> validates that every scene, enemy, recruit and landmark reference resolves and that every option has an outcome for every truth.</p><h2>Choices</h2><p>Every option shows its hour cost before you pick. There is almost always a half-measure (leave water and a ration; send one scout alone) with a small cost and small reward, because the pillar is a spectrum, not a switch.</p><h2>Checks</h2><p>An option may carry <code>check: { kind, dc, target?, exclude? }</code>.</p><ul><li>Kinds: <code>persuade</code>, <code>calm</code>, <code>haggle</code>, <code>talk-down</code> (charisma); <code>spot</code>, <code>see-lie</code> (perception).</li><li>The best-suited living member rolls d20 plus bonus against the dc, chosen deterministically by bonus (ties go to party order).</li><li>Bonus comes from role and trait tables in <code>src/game/checks.ts</code>, steady or frayed nerve, weakness, wounds, fever and fog.</li><li>The seeded RNG makes rolls reproducible.</li><li>The result <code>{ kind, by, byName, target, roll, bonus, dc, success, reason }</code> shows on the outcome screen; option previews show who will roll and their bonus. Outcomes filter with <code>needs: \"success\" | \"fail\"</code>.</li></ul><p>The 3D client shows rolls diegetically (see <a href=\"wiki:wiki_8bb6a3fb4b8b404ea6a7c6aacc154148\">Web client</a>).</p>",
+  "links": [
+    "wiki_8bb6a3fb4b8b404ea6a7c6aacc154148"
+  ],
+  "createdAt": "2026-09-29T02:42:15.037Z",
+  "updatedAt": "2026-09-29T02:43:16.079Z"
+}
