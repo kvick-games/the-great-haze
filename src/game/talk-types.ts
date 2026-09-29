@@ -27,6 +27,8 @@ export type Speaker =
 export interface Line {
   who: Speaker;
   text: string;
+  /** Other ways to say it. One of `text` and these is picked per scene, stably for that day. */
+  vary?: string[];
   mood?: Mood;
   gesture?: Gesture;
   /** Party speakers only: what they say instead if they have this trait (first match wins). */

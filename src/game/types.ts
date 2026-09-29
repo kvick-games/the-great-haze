@@ -4,8 +4,11 @@
 import type { Amount } from "./rng.ts";
 import type { ForkView, MapHud, MapOffer, RouteState } from "./map-types.ts";
 import type { CheckDef, CheckKind, CheckResult, Line, Look, SpokenLine, TellView } from "./talk-types.ts";
+import type { AffairOp, RelKind, RelState } from "./rel-types.ts";
 
 export * from "./talk-types.ts";
+export * from "./rel-types.ts";
+export type { RelationView } from "./relationships.ts";
 
 export const RESOURCE_IDS = [
   "rations",
@@ -70,6 +73,13 @@ export interface Member {
   fate?: string;
   isLeader: boolean;
   recruited?: boolean;
+  /** Notable things that happened to them, newest last (capped). Short past-tense lines. */
+  history: HistoryEntry[];
+}
+
+export interface HistoryEntry {
+  day: number;
+  text: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -109,6 +119,12 @@ export type Cond =
   /** A named companion (see content/npcs.ts) is alive on the train. */
   | { aboard: string }
   | { fog: true }
+  /** A member bound in the scene (or otherwise resolved by `Who`) has this trait. */
+  | { ofWho: Who; has: Trait }
+  /** The pair's relationship is one of these kinds (as it really is, secrets included). */
+  | { relKind: { a: Who; b: Who; kinds: RelKind[] } }
+  /** The pair's affinity is within a range. */
+  | { aff: { a: Who; b: Who; min?: number; max?: number } }
   | { partyMin: number }
   | { partyMax: number }
   | { not: Cond }
@@ -122,6 +138,12 @@ export type Effect =
   | { t: "trust"; who: Who; d: Amount }
   | { t: "bond"; a: Who; b: Who; d: Amount }
   | { t: "bondAll"; d: Amount }
+  /** Set what two people are to each other (courting, lovers, spouses, estranged...). */
+  | { t: "rel"; a: Who; b: Who; kind: RelKind }
+  /** Act on the affair the scene is about: a = wronged, b = culprit, other = lover. */
+  | { t: "affair"; op: AffairOp }
+  /** Add a short past-tense line to someone's history. Text may use {a} {b} {actor} {other} {leader}. */
+  | { t: "note"; who: Who; text: string }
   | { t: "status"; who: Who; s: "wounded" | "sick" | "fog"; v?: number }
   | { t: "cure"; who: Who; s: "wounded" | "sick" | "fog" }
   | { t: "repair"; d: Amount }
@@ -213,6 +235,14 @@ export interface SceneDef {
   intro: string[];
   /** The scene's spoken setup: 2-6 short lines. */
   talk?: Line[];
+  /** The engine queues this scene with its people already chosen (a, b, actor, other). */
+  bound?: boolean;
+  /**
+   * Affair scenes (a = wronged, b = culprit, other = lover): "player" means playing it
+   * teaches the wagon-master the secret; "public" means the wronged partner and the whole
+   * train learn it too.
+   */
+  secret?: "player" | "public";
   /** Who "stranger" speakers are, for scenes with an unnamed outsider. */
   stranger?: { name: string; look: Look };
   tells?: Tell[];
@@ -234,6 +264,8 @@ export interface SceneInstance {
   other?: string;
   a?: string;
   b?: string;
+  /** Someone who has died or gone, for scenes about missing them ({lost}). */
+  lost?: string;
   tells: { id?: string; text: string; revealed: boolean; phantom?: boolean; severity?: 1 | 2 | 3; say?: string }[];
   looks: number;
   /** Lines spoken during the scene: what the observer says as they notice things. */
@@ -259,7 +291,7 @@ export interface CombatInstance {
 }
 
 export type QueueItem =
-  | { t: "scene"; id: string; a?: string; b?: string; actor?: string }
+  | { t: "scene"; id: string; a?: string; b?: string; actor?: string; other?: string; lost?: string }
   | { t: "combat"; enemy: string }
   | { t: "arrival"; id: string }
   | { t: "fork"; node: string }
@@ -327,6 +359,8 @@ export interface GameState {
   train: { wagons: number; condition: number };
   party: Member[];
   bonds: Record<string, number>;
+  /** What pairs are to each other, and the secrets among them. See relationships.ts. */
+  rel: RelState;
   pace: PaceId;
   rations: RationId;
   today: DayState;
@@ -371,6 +405,8 @@ export interface MemberView {
   trust: number;
   conditions: string[];
   isLeader: boolean;
+  /** Notable things that happened to them, newest last. */
+  history: HistoryEntry[];
   /** Set for named companions from content/npcs.ts: how they look. */
   look?: Look;
 }

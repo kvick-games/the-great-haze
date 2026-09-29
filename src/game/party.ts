@@ -8,6 +8,33 @@ export function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n));
 }
 
+const NERVE_LOSS_MULT: Partial<Record<string, number>> = { stoic: 0.6, paranoid: 1.2, haunted: 1.2, coward: 1.3 };
+
+/** Shake or steady a member's nerve. Losses are scaled by who they are. Returns the real change. */
+export function changeNerve(m: Member, d: number): number {
+  let delta = d;
+  if (d < 0) {
+    let mult = 1;
+    for (const t of m.traits) mult *= NERVE_LOSS_MULT[t] ?? 1;
+    delta = -Math.round(-d * mult);
+  }
+  const before = m.nerve;
+  m.nerve = clamp(m.nerve + delta, 0, 100);
+  return m.nerve - before;
+}
+
+export const HISTORY_CAP = 40;
+
+/** Record something notable in a member's history ("Day 12: quarrelled with Abel over rations"). */
+export function remember(s: GameState, m: Member | undefined, text: string): void {
+  if (!m) return;
+  const list = m.history ?? (m.history = []);
+  const last = list[list.length - 1];
+  if (last && last.day === s.day && last.text === text) return;
+  list.push({ day: s.day, text });
+  if (list.length > HISTORY_CAP) list.splice(0, list.length - HISTORY_CAP);
+}
+
 export function living(s: GameState): Member[] {
   return s.party.filter((m) => m.alive);
 }
@@ -95,6 +122,7 @@ export function memberView(m: Member): MemberView {
     trust: Math.round(m.trust),
     conditions: conditionsOf(m),
     isLeader: m.isLeader,
+    history: (m.history ?? []).map((h) => ({ ...h })),
     look: m.recruited ? npcById(m.id)?.look : undefined,
   };
 }
